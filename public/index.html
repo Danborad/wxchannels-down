@@ -3,599 +3,734 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>微信视频号下载 - 原画无水印直链解析</title>
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎬</text></svg>">
+  <title>Channels — 微信视频号纯净提取</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><circle cx=%2250%22 cy=%2250%22 r=%2244%22 fill=%22%23000%22/><polygon points=%2240,32 70,50 40,68%22 fill=%22%23fff%22/></svg>">
   <style>
     :root {
-      --primary: #07c160;
-      --primary-hover: #06ad56;
-      --primary-light: rgba(7, 193, 96, 0.08);
-      --bg: #f8fafc;
-      --surface: #ffffff;
-      --border: #e2e8f0;
-      --text: #0f172a;
-      --text-sub: #475569;
-      --text-muted: #94a3b8;
-      --danger: #ef4444;
-      --danger-light: #fef2f2;
-      --radius: 12px;
-      --shadow-sm: 0 1px 2px rgba(0,0,0,0.04);
-      --shadow-md: 0 4px 16px -2px rgba(0,0,0,0.06);
+      --bg: #fafafc;
+      --card-bg: rgba(255, 255, 255, 0.85);
+      --card-solid: #ffffff;
+      --border: rgba(0, 0, 0, 0.07);
+      --border-hover: rgba(0, 0, 0, 0.16);
+      --text: #111827;
+      --text-secondary: #4b5563;
+      --text-muted: #9ca3af;
+      --accent: #111827;
+      --accent-hover: #000000;
+      --accent-text: #ffffff;
+      --pill-bg: #f3f4f6;
+      --shadow-ambient: 0 20px 40px -15px rgba(0, 0, 0, 0.05);
+      --shadow-float: 0 10px 25px -5px rgba(0, 0, 0, 0.04), 0 8px 10px -6px rgba(0, 0, 0, 0.02);
+      --ease: cubic-bezier(0.16, 1, 0.3, 1);
     }
 
     @media (prefers-color-scheme: dark) {
       :root {
-        --bg: #090d16;
-        --surface: #111827;
-        --border: #1f2937;
+        --bg: #090a0f;
+        --card-bg: rgba(18, 20, 29, 0.82);
+        --card-solid: #12141d;
+        --border: rgba(255, 255, 255, 0.08);
+        --border-hover: rgba(255, 255, 255, 0.18);
         --text: #f9fafb;
-        --text-sub: #9ca3af;
-        --text-muted: #64748b;
-        --primary-light: rgba(7, 193, 96, 0.15);
-        --danger-light: #371212;
-        --shadow-sm: 0 1px 2px rgba(0,0,0,0.3);
-        --shadow-md: 0 4px 16px -2px rgba(0,0,0,0.4);
+        --text-secondary: #9ca3af;
+        --text-muted: #6b7280;
+        --accent: #ffffff;
+        --accent-hover: #f3f4f6;
+        --accent-text: #090a0f;
+        --pill-bg: rgba(255, 255, 255, 0.06);
+        --shadow-ambient: 0 24px 48px -12px rgba(0, 0, 0, 0.5);
+        --shadow-float: 0 12px 30px -8px rgba(0, 0, 0, 0.6);
       }
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Segoe UI", Roboto, sans-serif;
-      background: var(--bg);
-      color: var(--text);
-      line-height: 1.5;
+    html, body {
       min-height: 100vh;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    body {
       display: flex;
       flex-direction: column;
       align-items: center;
-      padding: 18px 12px;
-      -webkit-tap-highlight-color: transparent;
+      padding: clamp(16px, 3vh, 32px) clamp(14px, 3vw, 24px);
     }
 
-    .app {
+    /* 极简居中主舞台 */
+    .stage {
       width: 100%;
-      max-width: 780px;
+      max-width: 760px;
       display: flex;
       flex-direction: column;
-      gap: 12px;
+      gap: 16px;
     }
 
-    /* 顶部简约 Header */
-    .brand-header {
+    /* 艺术感顶标 */
+    .brand {
       text-align: center;
-      padding: 4px 0;
+      padding: 6px 0 2px;
+      user-select: none;
     }
 
-    .brand-title {
-      font-size: 19px;
-      font-weight: 700;
-      letter-spacing: -0.3px;
-      display: flex;
+    .brand-mark {
+      display: inline-flex;
       align-items: center;
-      justify-content: center;
-      gap: 6px;
+      gap: 7px;
+      font-size: 19px;
+      font-weight: 600;
+      letter-spacing: -0.04em;
+      color: var(--text);
     }
 
-    .brand-desc {
+    .brand-mark svg {
+      width: 18px;
+      height: 18px;
+    }
+
+    .brand-sub {
       font-size: 12px;
       color: var(--text-muted);
-      margin-top: 2px;
+      letter-spacing: 0.02em;
+      margin-top: 3px;
+      font-weight: 400;
     }
 
-    /* 卡片通用 */
-    .card {
-      background: var(--surface);
+    /* 输入栏：悬浮交互胶囊 */
+    .capsule-form {
+      position: relative;
+      background: var(--card-bg);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
       border: 1px solid var(--border);
-      border-radius: var(--radius);
-      box-shadow: var(--shadow-sm);
-    }
-
-    /* 输入搜索条 */
-    .search-box {
-      padding: 8px 10px;
+      border-radius: 14px;
+      padding: 6px;
       display: flex;
       align-items: center;
       gap: 8px;
+      box-shadow: var(--shadow-float);
+      transition: all 0.25s var(--ease);
     }
 
-    .input-inner {
-      flex: 1;
-      position: relative;
+    .capsule-form:focus-within {
+      border-color: var(--border-hover);
+      box-shadow: var(--shadow-ambient), 0 0 0 1px var(--border-hover);
+    }
+
+    .capsule-icon {
+      padding-left: 10px;
+      color: var(--text-muted);
       display: flex;
       align-items: center;
     }
 
-    .url-input {
-      width: 100%;
-      padding: 9px 58px 9px 12px;
-      border: 1.5px solid var(--border);
-      border-radius: 8px;
-      background: var(--bg);
+    .capsule-input {
+      flex: 1;
+      border: none;
+      outline: none;
+      background: transparent;
       color: var(--text);
       font-size: 14px;
-      outline: none;
-      transition: all 0.2s;
+      letter-spacing: -0.01em;
+      padding: 8px 4px;
+      min-width: 0;
     }
 
-    .url-input:focus {
-      border-color: var(--primary);
-      background: var(--surface);
+    .capsule-input::placeholder {
+      color: var(--text-muted);
+      font-weight: 400;
     }
 
-    .paste-btn {
-      position: absolute;
-      right: 6px;
-      background: none;
+    .capsule-btn-paste {
+      background: transparent;
       border: none;
-      color: var(--primary);
+      color: var(--text-secondary);
       font-size: 12px;
-      font-weight: 600;
-      cursor: pointer;
-      padding: 4px 6px;
-      border-radius: 4px;
-    }
-
-    .paste-btn:hover {
-      background: var(--primary-light);
-    }
-
-    .btn-submit {
-      background: var(--primary);
-      color: #fff;
-      border: none;
+      font-weight: 500;
+      padding: 6px 10px;
       border-radius: 8px;
-      padding: 9px 18px;
-      font-size: 14px;
-      font-weight: 600;
       cursor: pointer;
-      white-space: nowrap;
       transition: all 0.2s;
+      white-space: nowrap;
     }
 
-    .btn-submit:hover {
-      background: var(--primary-hover);
+    .capsule-btn-paste:hover {
+      background: var(--pill-bg);
+      color: var(--text);
     }
 
-    .btn-submit:disabled {
-      opacity: 0.6;
-      cursor: not-allowed;
-    }
-
-    /* 状态提示 */
-    .alert-banner {
-      padding: 8px 12px;
-      border-radius: 8px;
+    .capsule-btn-submit {
+      background: var(--accent);
+      color: var(--accent-text);
+      border: none;
+      border-radius: 10px;
+      padding: 9px 18px;
       font-size: 13px;
-      display: none;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      cursor: pointer;
+      transition: all 0.2s var(--ease);
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      white-space: nowrap;
     }
 
-    .alert-banner.err {
+    .capsule-btn-submit:hover {
+      background: var(--accent-hover);
+      transform: scale(0.98);
+    }
+
+    .capsule-btn-submit:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    /* 错误提示框 */
+    .notice {
+      padding: 10px 14px;
+      border-radius: 10px;
+      font-size: 12px;
+      line-height: 1.4;
+      display: none;
+      animation: fadeIn 0.3s var(--ease);
+    }
+
+    .notice.error {
       display: block;
-      background: var(--danger-light);
-      border: 1px solid var(--danger);
-      color: var(--danger);
+      background: rgba(239, 68, 68, 0.08);
+      border: 1px solid rgba(239, 68, 68, 0.2);
+      color: #ef4444;
     }
 
-    /* 解析结果区：紧凑单屏展示 */
-    .result-section {
+    /* 结果展台：精致画廊卡片 (单屏展示) */
+    .bento-card {
       display: none;
-      padding: 12px;
+      background: var(--card-bg);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 16px;
+      box-shadow: var(--shadow-ambient);
+      animation: slideUp 0.35s var(--ease);
     }
 
-    .result-grid {
+    .bento-layout {
       display: flex;
-      gap: 14px;
+      gap: 18px;
+      align-items: stretch;
     }
 
-    /* 左栏：视频播放/图集 */
-    .media-box {
-      flex: 0 0 280px;
+    /* 左侧：画廊视口 */
+    .gallery-pane {
+      flex: 0 0 260px;
       display: flex;
       align-items: center;
       justify-content: center;
-    }
-
-    .video-view {
-      width: 100%;
-      max-height: 380px;
-      aspect-ratio: 9/16;
-      border-radius: 8px;
+      border-radius: 12px;
       background: #000;
-      object-fit: contain;
+      overflow: hidden;
+      position: relative;
     }
 
-    .album-grid {
+    .gallery-video {
+      width: 100%;
+      height: 100%;
+      max-height: 340px;
+      aspect-ratio: 9/16;
+      object-fit: contain;
+      display: block;
+      outline: none;
+    }
+
+    .album-flow {
+      width: 100%;
       display: grid;
       grid-template-columns: repeat(3, 1fr);
-      gap: 6px;
-      width: 100%;
+      gap: 4px;
+      padding: 6px;
     }
 
-    .album-item {
+    .album-slot {
       aspect-ratio: 1;
       border-radius: 6px;
       overflow: hidden;
-      border: 1px solid var(--border);
+      background: var(--pill-bg);
     }
 
-    .album-item img {
+    .album-slot img {
       width: 100%;
       height: 100%;
       object-fit: cover;
     }
 
-    /* 右栏：详情与下载 */
-    .meta-box {
+    /* 右侧：排版与指令 */
+    .story-pane {
       flex: 1;
       min-width: 0;
       display: flex;
       flex-direction: column;
       justify-content: space-between;
-      gap: 8px;
+      gap: 10px;
     }
 
-    .author-info {
+    .creator-line {
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 9px;
     }
 
-    .author-avatar {
-      width: 34px;
-      height: 34px;
+    .creator-avatar {
+      width: 32px;
+      height: 32px;
       border-radius: 50%;
       object-fit: cover;
+      background: var(--pill-bg);
       border: 1px solid var(--border);
     }
 
-    .author-name {
-      font-size: 14px;
+    .creator-meta {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .creator-name {
+      font-size: 13px;
       font-weight: 600;
+      letter-spacing: -0.02em;
       display: flex;
       align-items: center;
       gap: 4px;
+      color: var(--text);
     }
 
-    .author-badge {
-      width: 14px;
-      height: 14px;
+    .creator-badge {
+      width: 12px;
+      height: 12px;
     }
 
-    .video-desc {
+    .creator-time {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    .caption-scroll {
       font-size: 13px;
-      color: var(--text-sub);
-      background: var(--bg);
-      border-radius: 6px;
-      padding: 8px 10px;
-      line-height: 1.45;
-      max-height: 80px;
+      line-height: 1.55;
+      color: var(--text-secondary);
+      background: var(--pill-bg);
+      border-radius: 10px;
+      padding: 10px 12px;
+      max-height: 78px;
       overflow-y: auto;
       word-break: break-all;
     }
 
-    .badge-bar {
+    .metrics-ribbon {
       display: flex;
       flex-wrap: wrap;
       gap: 6px;
       font-size: 11px;
       color: var(--text-muted);
+      letter-spacing: -0.01em;
     }
 
-    .badge-bar span {
-      background: var(--bg);
+    .metric-chip {
+      background: var(--pill-bg);
       border: 1px solid var(--border);
       padding: 2px 7px;
-      border-radius: 10px;
+      border-radius: 6px;
+      font-variant-numeric: tabular-nums;
     }
 
-    .btn-actions {
+    /* 动作按钮网格 */
+    .controls-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 6px;
+      margin-top: 2px;
     }
 
-    .btn-act {
+    .cmd-btn {
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      gap: 4px;
-      padding: 8px 10px;
-      border-radius: 7px;
-      font-size: 13px;
+      gap: 5px;
+      padding: 8px 12px;
+      border-radius: 9px;
+      font-size: 12px;
       font-weight: 600;
       text-decoration: none;
-      border: 1px solid var(--border);
-      background: var(--bg);
-      color: var(--text);
       cursor: pointer;
-      transition: all 0.2s;
+      transition: all 0.15s var(--ease);
+      border: 1px solid var(--border);
+      background: var(--card-solid);
+      color: var(--text);
       white-space: nowrap;
     }
 
-    .btn-act:hover {
-      border-color: var(--primary);
-      color: var(--primary);
+    .cmd-btn:hover {
+      border-color: var(--border-hover);
+      transform: translateY(-1px);
     }
 
-    .btn-act.main {
+    .cmd-btn.prime {
       grid-column: span 2;
-      background: var(--primary);
-      border-color: var(--primary);
-      color: #fff;
+      background: var(--accent);
+      border-color: var(--accent);
+      color: var(--accent-text);
+      padding: 9px 14px;
     }
 
-    .btn-act.main:hover {
-      background: var(--primary-hover);
+    .cmd-btn.prime:hover {
+      background: var(--accent-hover);
+      border-color: var(--accent-hover);
     }
 
-    /* 历史记录卡片 */
-    .history-card {
-      padding: 12px;
-      display: flex;
+    /* 历史归档区 (简洁质感) */
+    .archive-card {
+      display: none;
+      background: var(--card-bg);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 12px 14px;
       flex-direction: column;
       gap: 8px;
+      box-shadow: var(--shadow-float);
     }
 
-    .history-header {
+    .archive-header {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      font-size: 13px;
-      font-weight: 600;
-      color: var(--text-sub);
+      padding: 0 2px;
     }
 
-    .history-count {
+    .archive-title {
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      color: var(--text-secondary);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .archive-count {
       font-size: 11px;
       color: var(--text-muted);
       font-weight: 400;
     }
 
-    .btn-text-clear {
+    .archive-clear {
       background: none;
       border: none;
-      font-size: 12px;
+      font-size: 11px;
       color: var(--text-muted);
       cursor: pointer;
+      transition: color 0.15s;
     }
 
-    .btn-text-clear:hover {
-      color: var(--danger);
+    .archive-clear:hover {
+      color: #ef4444;
     }
 
-    .history-list {
+    .archive-stream {
       display: flex;
       flex-direction: column;
-      gap: 6px;
-      max-height: 260px;
+      gap: 5px;
+      max-height: 230px;
       overflow-y: auto;
     }
 
-    .history-item {
+    .archive-entry {
       display: flex;
       align-items: center;
       gap: 10px;
       padding: 6px 8px;
-      border-radius: 8px;
-      background: var(--bg);
-      border: 1px solid var(--border);
-      transition: all 0.2s;
+      border-radius: 9px;
+      background: var(--pill-bg);
+      border: 1px solid transparent;
+      transition: all 0.15s var(--ease);
     }
 
-    .history-item:hover {
-      border-color: var(--primary);
+    .archive-entry:hover {
+      border-color: var(--border-hover);
+      background: var(--card-solid);
     }
 
-    .history-thumb {
-      width: 40px;
-      height: 40px;
-      border-radius: 5px;
+    .archive-poster {
+      width: 36px;
+      height: 36px;
+      border-radius: 6px;
       object-fit: cover;
       background: #000;
       flex-shrink: 0;
       cursor: pointer;
     }
 
-    .history-info {
+    .archive-detail {
       flex: 1;
       min-width: 0;
       cursor: pointer;
     }
 
-    .history-title {
+    .archive-caption {
       font-size: 12px;
-      font-weight: 600;
+      font-weight: 500;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
+      color: var(--text);
     }
 
-    .history-sub {
-      font-size: 11px;
+    .archive-subtext {
+      font-size: 10px;
       color: var(--text-muted);
-      display: flex;
-      align-items: center;
-      gap: 6px;
+      margin-top: 1px;
     }
 
-    .history-btns {
+    .archive-actions {
       display: flex;
-      gap: 4px;
+      gap: 3px;
       flex-shrink: 0;
     }
 
-    .btn-sm-icon {
-      background: var(--surface);
+    .archive-action-btn {
+      background: var(--card-solid);
       border: 1px solid var(--border);
-      color: var(--text-sub);
-      padding: 3px 8px;
+      color: var(--text-secondary);
+      padding: 3px 7px;
       border-radius: 5px;
-      font-size: 11px;
+      font-size: 10px;
+      font-weight: 500;
       cursor: pointer;
       text-decoration: none;
+      transition: all 0.15s;
     }
 
-    .btn-sm-icon:hover {
-      border-color: var(--primary);
-      color: var(--primary);
+    .archive-action-btn:hover {
+      color: var(--text);
+      border-color: var(--border-hover);
     }
 
-    /* 移动端适配 (超紧凑一屏自适应) */
-    @media (max-width: 640px) {
-      body { padding: 10px 8px; }
-      .app { gap: 10px; }
-      .result-grid {
-        flex-direction: column;
-        gap: 10px;
+    /* 移动端排版优化 */
+    @media (max-width: 680px) {
+      body {
+        padding: 10px 8px;
       }
-      .media-box {
+      .bento-layout {
+        flex-direction: column;
+        gap: 12px;
+      }
+      .gallery-pane {
         flex: 1;
         width: 100%;
       }
-      .video-view {
+      .gallery-video {
         max-height: 280px;
       }
-      .video-desc {
+      .caption-scroll {
         max-height: 60px;
       }
-      .btn-actions {
+      .controls-grid {
         grid-template-columns: 1fr 1fr;
       }
     }
 
-    /* Toast */
-    .toast {
+    /* Toast 通知 */
+    .toast-bubble {
       position: fixed;
       bottom: 24px;
       left: 50%;
-      transform: translateX(-50%);
-      background: rgba(0,0,0,0.85);
-      color: #fff;
-      padding: 7px 16px;
-      border-radius: 20px;
+      transform: translateX(-50%) translateY(20px);
+      background: var(--text);
+      color: var(--bg);
+      padding: 8px 18px;
+      border-radius: 24px;
       font-size: 12px;
-      display: none;
-      z-index: 1000;
+      font-weight: 500;
+      letter-spacing: -0.01em;
+      opacity: 0;
+      pointer-events: none;
+      transition: all 0.25s var(--ease);
+      z-index: 9999;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+    }
+
+    .toast-bubble.show {
+      transform: translateX(-50%) translateY(0);
+      opacity: 1;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
     }
   </style>
 </head>
 <body>
 
-<div class="app">
-  <!-- Title -->
-  <header class="brand-header">
-    <div class="brand-title">🎬 微信视频号下载</div>
-    <div class="brand-desc">无水印原画视频与图集直链一键提取</div>
+<main class="stage">
+  <!-- 极简 Logo 与标题 -->
+  <header class="brand">
+    <div class="brand-mark">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <polygon points="5 3 19 12 5 21 5 3"></polygon>
+      </svg>
+      <span>Channels</span>
+    </div>
+    <div class="brand-sub">原画无水印直链提取</div>
   </header>
 
-  <!-- 搜索输入 -->
-  <div class="card search-box">
-    <div class="input-inner">
-      <input type="text" id="urlInput" class="url-input" placeholder="在此粘贴微信视频号分享链接" autocomplete="off">
-      <button class="paste-btn" id="btnPaste">📋 粘贴</button>
+  <!-- 搜索胶囊 -->
+  <div class="capsule-form">
+    <div class="capsule-icon">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="11" cy="11" r="8"></circle>
+        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+      </svg>
     </div>
-    <button class="btn-submit" id="btnParse">提取视频</button>
+    <input type="text" id="urlInput" class="capsule-input" placeholder="粘贴视频号分享链接..." autocomplete="off">
+    <button class="capsule-btn-paste" id="btnPaste">粘贴</button>
+    <button class="capsule-btn-submit" id="btnParse">提取</button>
   </div>
 
-  <div id="alertBox" class="alert-banner"></div>
+  <div id="noticeBox" class="notice"></div>
 
-  <!-- 结果面板 (紧凑单屏) -->
-  <div id="resultCard" class="card result-section">
-    <div class="result-grid">
-      <!-- 左：媒体 -->
-      <div class="media-box">
-        <video id="videoView" class="video-view" controls playsinline preload="metadata"></video>
-        <div id="albumView" class="album-grid" style="display: none;"></div>
+  <!-- 结果画廊卡片 (单屏紧凑) -->
+  <section id="resultCard" class="bento-card">
+    <div class="bento-layout">
+      <!-- 媒体画廊视口 -->
+      <div class="gallery-pane">
+        <video id="videoView" class="gallery-video" controls playsinline preload="metadata"></video>
+        <div id="albumView" class="album-flow" style="display: none;"></div>
       </div>
 
-      <!-- 右：详情与按钮 -->
-      <div class="meta-box">
-        <div class="author-info">
-          <img id="authorAvatar" class="author-avatar" src="" alt="" onerror="this.style.display='none'">
-          <div>
-            <div class="author-name">
-              <span id="authorName">作者</span>
-              <img id="authorBadge" class="author-badge" src="" style="display: none;">
+      <!-- 内容排版与操作 -->
+      <div class="story-pane">
+        <div class="creator-line">
+          <img id="creatorAvatar" class="creator-avatar" src="" alt="" onerror="this.style.display='none'">
+          <div class="creator-meta">
+            <div class="creator-name">
+              <span id="creatorName">作者</span>
+              <img id="creatorBadge" class="creator-badge" src="" style="display: none;">
             </div>
-            <div id="videoTime" style="font-size: 11px; color: var(--text-muted);">-</div>
+            <div id="postTime" class="creator-time">-</div>
           </div>
         </div>
 
-        <div id="videoDesc" class="video-desc"></div>
+        <div id="postDesc" class="caption-scroll"></div>
 
-        <div class="badge-bar">
-          <span>👍 <b id="statLike">0</b></span>
-          <span>❤️ <b id="statFav">0</b></span>
-          <span>↗️ <b id="statForward">0</b></span>
-          <span>💬 <b id="statComment">0</b></span>
+        <div class="metrics-ribbon">
+          <span class="metric-chip">赞 <b id="statLike">0</b></span>
+          <span class="metric-chip">藏 <b id="statFav">0</b></span>
+          <span class="metric-chip">转 <b id="statForward">0</b></span>
+          <span class="metric-chip">评 <b id="statComment">0</b></span>
         </div>
 
-        <div class="btn-actions">
-          <a id="btnDownload" class="btn-act main" href="#" target="_blank">⬇️ 一键下载原画视频 (MP4)</a>
-          <button id="btnCopyLink" class="btn-act">📋 复制直链</button>
-          <button id="btnCopyText" class="btn-act">📄 复制文案</button>
-          <a id="btnCover" class="btn-act" href="#" target="_blank">🖼️ 封面图</a>
-          <a id="btnBgm" class="btn-act" style="display: none;" href="#" target="_blank">🎵 背景音乐</a>
+        <div class="controls-grid">
+          <a id="btnDownload" class="cmd-btn prime" href="#" target="_blank">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="7 10 12 15 17 10"></polyline>
+              <line x1="12" y1="15" x2="12" y2="3"></line>
+            </svg>
+            <span>下载原画 MP4</span>
+          </a>
+          <button id="btnCopyLink" class="cmd-btn">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+            </svg>
+            <span>复制直链</span>
+          </button>
+          <button id="btnCopyText" class="cmd-btn">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+              <polyline points="14 2 14 8 20 8"></polyline>
+              <line x1="16" y1="13" x2="8" y2="13"></line>
+              <line x1="16" y1="17" x2="8" y2="17"></line>
+            </svg>
+            <span>复制文案</span>
+          </button>
+          <a id="btnCover" class="cmd-btn" href="#" target="_blank">封面图片</a>
+          <a id="btnBgm" class="cmd-btn" style="display: none;" href="#" target="_blank">背景音乐</a>
         </div>
       </div>
     </div>
-  </div>
+  </section>
 
-  <!-- 浏览器缓存历史记录 -->
-  <div class="card history-card" id="historyCard" style="display: none;">
-    <div class="history-header">
-      <span>最近解析记录 <span id="historyCount" class="history-count"></span></span>
-      <button class="btn-text-clear" id="btnClearHistory">清空记录</button>
+  <!-- 归档卡片 (LocalStorage 历史记录) -->
+  <section class="archive-card" id="archiveCard">
+    <div class="archive-header">
+      <span class="archive-title">
+        <span>历史记录</span>
+        <span id="archiveCount" class="archive-count"></span>
+      </span>
+      <button class="archive-clear" id="btnClearArchive">清空</button>
     </div>
-    <div class="history-list" id="historyList"></div>
-  </div>
-</div>
+    <div class="archive-stream" id="archiveStream"></div>
+  </section>
+</main>
 
-<div id="toast" class="toast"></div>
+<div id="toastBubble" class="toast-bubble"></div>
 
 <script>
   const urlInput = document.getElementById("urlInput");
   const btnPaste = document.getElementById("btnPaste");
   const btnParse = document.getElementById("btnParse");
-  const alertBox = document.getElementById("alertBox");
+  const noticeBox = document.getElementById("noticeBox");
   const resultCard = document.getElementById("resultCard");
-  const toast = document.getElementById("toast");
+  const toastBubble = document.getElementById("toastBubble");
 
   const videoView = document.getElementById("videoView");
   const albumView = document.getElementById("albumView");
-  const authorAvatar = document.getElementById("authorAvatar");
-  const authorName = document.getElementById("authorName");
-  const authorBadge = document.getElementById("authorBadge");
-  const videoTime = document.getElementById("videoTime");
-  const videoDesc = document.getElementById("videoDesc");
+  const creatorAvatar = document.getElementById("creatorAvatar");
+  const creatorName = document.getElementById("creatorName");
+  const creatorBadge = document.getElementById("creatorBadge");
+  const postTime = document.getElementById("postTime");
+  const postDesc = document.getElementById("postDesc");
   const btnDownload = document.getElementById("btnDownload");
   const btnCopyLink = document.getElementById("btnCopyLink");
   const btnCopyText = document.getElementById("btnCopyText");
   const btnCover = document.getElementById("btnCover");
   const btnBgm = document.getElementById("btnBgm");
 
-  const historyCard = document.getElementById("historyCard");
-  const historyList = document.getElementById("historyList");
-  const historyCount = document.getElementById("historyCount");
-  const btnClearHistory = document.getElementById("btnClearHistory");
+  const archiveCard = document.getElementById("archiveCard");
+  const archiveStream = document.getElementById("archiveStream");
+  const archiveCount = document.getElementById("archiveCount");
+  const btnClearArchive = document.getElementById("btnClearArchive");
 
-  let currentData = null;
-  const HISTORY_KEY = "wx_channels_history_v1";
+  let activeData = null;
+  const ARCHIVE_KEY = "wxchannels_archive_v2";
 
-  function showToast(msg) {
-    toast.textContent = msg;
-    toast.style.display = "block";
-    setTimeout(() => { toast.style.display = "none"; }, 2400);
+  function toast(msg) {
+    toastBubble.textContent = msg;
+    toastBubble.classList.add("show");
+    setTimeout(() => { toastBubble.classList.remove("show"); }, 2200);
   }
 
-  function showAlert(msg) {
-    alertBox.textContent = msg;
-    alertBox.className = "alert-banner err";
+  function showNotice(msg) {
+    noticeBox.textContent = msg;
+    noticeBox.className = "notice error";
   }
 
-  function hideAlert() {
-    alertBox.className = "alert-banner";
-    alertBox.textContent = "";
+  function hideNotice() {
+    noticeBox.className = "notice";
+    noticeBox.textContent = "";
   }
 
   // 剪贴板快速粘贴
@@ -604,31 +739,31 @@
       const text = await navigator.clipboard.readText();
       if (text) {
         urlInput.value = text;
-        showToast("已粘贴剪贴板内容");
+        toast("已粘贴内容");
       }
     } catch (_) {
       urlInput.focus();
     }
   });
 
-  // 解析
-  btnParse.addEventListener("click", doParse);
+  // 解析指令
+  btnParse.addEventListener("click", handleExtract);
   urlInput.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") doParse();
+    if (e.key === "Enter") handleExtract();
   });
 
-  async function doParse() {
+  async function handleExtract() {
     const raw = urlInput.value.trim();
     if (!raw) {
-      showAlert("请先粘贴视频号分享链接");
+      showNotice("请粘贴有效的微信视频号分享链接");
       return;
     }
     const match = raw.match(/https:\/\/weixin\.qq\.com\/sph\/[a-zA-Z0-9_-]+/);
     const targetUrl = match ? match[0] : raw;
 
-    hideAlert();
+    hideNotice();
     btnParse.disabled = true;
-    btnParse.textContent = "解析中...";
+    btnParse.textContent = "解析中";
 
     try {
       const resp = await fetch("/api/parse", {
@@ -637,40 +772,40 @@
         body: JSON.stringify({ url: targetUrl }),
       });
       const res = await resp.json();
-      if (!res.success) throw new Error(res.error || "解析失败");
+      if (!res.success) throw new Error(res.error || "提取失败");
 
-      currentData = res.data;
-      renderResult(res.data);
-      saveToHistory(targetUrl, res.data);
-      showToast("解析成功！");
+      activeData = res.data;
+      renderGallery(res.data);
+      recordArchive(targetUrl, res.data);
+      toast("解析完成");
     } catch (err) {
-      showAlert(err.message);
+      showNotice(err.message);
     } finally {
       btnParse.disabled = false;
-      btnParse.textContent = "提取视频";
+      btnParse.textContent = "提取";
     }
   }
 
-  function renderResult(data) {
+  function renderGallery(data) {
     const { author, feed } = data;
 
-    authorName.textContent = author.nickname || "视频作者";
+    creatorName.textContent = author.nickname || "视频作者";
     if (author.headImgUrl) {
-      authorAvatar.src = author.headImgUrl;
-      authorAvatar.style.display = "block";
+      creatorAvatar.src = author.headImgUrl;
+      creatorAvatar.style.display = "block";
     } else {
-      authorAvatar.style.display = "none";
+      creatorAvatar.style.display = "none";
     }
 
     if (author.authInfo) {
-      authorBadge.src = author.authInfo;
-      authorBadge.style.display = "inline-block";
+      creatorBadge.src = author.authInfo;
+      creatorBadge.style.display = "inline-block";
     } else {
-      authorBadge.style.display = "none";
+      creatorBadge.style.display = "none";
     }
 
-    videoTime.textContent = feed.createTime ? new Date(feed.createTime * 1000).toLocaleString("zh-CN") : "";
-    videoDesc.textContent = feed.description || "（无文案标题）";
+    postTime.textContent = feed.createTime ? new Date(feed.createTime * 1000).toLocaleString("zh-CN") : "";
+    postDesc.textContent = feed.description || "（无文案标题）";
 
     document.getElementById("statLike").textContent = feed.stats.likeCount || "0";
     document.getElementById("statFav").textContent = feed.stats.favCount || "0";
@@ -692,7 +827,7 @@
       if (feed.picList && feed.picList.length > 0) {
         albumView.style.display = "grid";
         albumView.innerHTML = feed.picList.map((p) => `
-          <div class="album-item">
+          <div class="album-slot">
             <a href="${p}" target="_blank"><img src="${p}" loading="lazy"></a>
           </div>
         `).join("");
@@ -717,30 +852,29 @@
   }
 
   btnCopyLink.addEventListener("click", () => {
-    if (!currentData?.feed?.videoUrl) return;
-    navigator.clipboard.writeText(currentData.feed.videoUrl).then(() => showToast("已复制原画视频直链！"));
+    if (!activeData?.feed?.videoUrl) return;
+    navigator.clipboard.writeText(activeData.feed.videoUrl).then(() => toast("直链已复制"));
   });
 
   btnCopyText.addEventListener("click", () => {
-    if (!currentData?.feed?.description) return;
-    navigator.clipboard.writeText(currentData.feed.description).then(() => showToast("已复制视频文案！"));
+    if (!activeData?.feed?.description) return;
+    navigator.clipboard.writeText(activeData.feed.description).then(() => toast("文案已复制"));
   });
 
-  // ---------------- 本地历史记录 (localStorage) ----------------
-  function getHistory() {
+  // ---------------- 本地档案 (LocalStorage) ----------------
+  function readArchive() {
     try {
-      return JSON.parse(localStorage.getItem(HISTORY_KEY) || "[]");
+      return JSON.parse(localStorage.getItem(ARCHIVE_KEY) || "[]");
     } catch (_) {
       return [];
     }
   }
 
-  function saveToHistory(shareUrl, data) {
-    const list = getHistory();
+  function recordArchive(shareUrl, data) {
+    const list = readArchive();
     const id = data.exportId || shareUrl;
-    // 去重，移到最前
-    const filtered = list.filter((item) => item.id !== id);
-    filtered.unshift({
+    const cleanList = list.filter((item) => item.id !== id);
+    cleanList.unshift({
       id,
       shareUrl,
       title: data.feed.description || "无标题视频",
@@ -750,73 +884,66 @@
       time: Date.now(),
       payload: data,
     });
-    // 最多保留 25 条
-    const limited = filtered.slice(0, 25);
-    localStorage.setItem(HISTORY_KEY, JSON.stringify(limited));
-    renderHistory();
+    localStorage.setItem(ARCHIVE_KEY, JSON.stringify(cleanList.slice(0, 30)));
+    renderArchive();
   }
 
-  function renderHistory() {
-    const list = getHistory();
+  function renderArchive() {
+    const list = readArchive();
     if (list.length === 0) {
-      historyCard.style.display = "none";
+      archiveCard.style.display = "none";
       return;
     }
-    historyCard.style.display = "flex";
-    historyCount.textContent = `(${list.length})`;
-    historyList.innerHTML = list.map((item, idx) => `
-      <div class="history-item">
-        <img class="history-thumb" src="${item.cover}" alt="" onclick="loadHistoryItem(${idx})" onerror="this.style.display='none'">
-        <div class="history-info" onclick="loadHistoryItem(${idx})">
-          <div class="history-title">${item.title}</div>
-          <div class="history-sub">
-            <span>${item.author}</span>
-            <span>·</span>
-            <span>${new Date(item.time).toLocaleDateString()}</span>
-          </div>
+    archiveCard.style.display = "flex";
+    archiveCount.textContent = `· ${list.length}`;
+    archiveStream.innerHTML = list.map((item, idx) => `
+      <div class="archive-entry">
+        <img class="archive-poster" src="${item.cover}" alt="" onclick="loadArchived(${idx})" onerror="this.style.display='none'">
+        <div class="archive-detail" onclick="loadArchived(${idx})">
+          <div class="archive-caption">${item.title}</div>
+          <div class="archive-subtext">${item.author} · ${new Date(item.time).toLocaleDateString()}</div>
         </div>
-        <div class="history-btns">
-          ${item.videoUrl ? `<a class="btn-sm-icon" href="/api/download?url=${encodeURIComponent(item.videoUrl)}&filename=${encodeURIComponent((item.title || 'video').slice(0, 20) + '.mp4')}" target="_blank">下载</a>` : ''}
-          <button class="btn-sm-icon" onclick="copyHistoryLink('${idx}')">复制</button>
-          <button class="btn-sm-icon" style="color:var(--danger)" onclick="deleteHistoryItem(${idx})">×</button>
+        <div class="archive-actions">
+          ${item.videoUrl ? `<a class="archive-action-btn" href="/api/download?url=${encodeURIComponent(item.videoUrl)}&filename=${encodeURIComponent((item.title || 'video').slice(0, 20) + '.mp4')}" target="_blank">下载</a>` : ''}
+          <button class="archive-action-btn" onclick="copyArchived(${idx})">复制</button>
+          <button class="archive-action-btn" style="color:#ef4444" onclick="removeArchived(${idx})">×</button>
         </div>
       </div>
     `).join("");
   }
 
-  window.loadHistoryItem = function(idx) {
-    const list = getHistory();
+  window.loadArchived = function(idx) {
+    const list = readArchive();
     if (list[idx]) {
-      currentData = list[idx].payload;
-      renderResult(list[idx].payload);
-      showToast("已载入历史记录");
+      activeData = list[idx].payload;
+      renderGallery(list[idx].payload);
+      toast("已调取历史记录");
       window.scrollTo({ top: 0, behavior: "smooth" });
     }
   };
 
-  window.copyHistoryLink = function(idx) {
-    const list = getHistory();
+  window.copyArchived = function(idx) {
+    const list = readArchive();
     if (list[idx] && list[idx].videoUrl) {
-      navigator.clipboard.writeText(list[idx].videoUrl).then(() => showToast("已复制视频直链！"));
+      navigator.clipboard.writeText(list[idx].videoUrl).then(() => toast("直链已复制"));
     }
   };
 
-  window.deleteHistoryItem = function(idx) {
-    const list = getHistory();
+  window.removeArchived = function(idx) {
+    const list = readArchive();
     list.splice(idx, 1);
-    localStorage.setItem(HISTORY_KEY, JSON.stringify(list));
-    renderHistory();
+    localStorage.setItem(ARCHIVE_KEY, JSON.stringify(list));
+    renderArchive();
   };
 
-  btnClearHistory.addEventListener("click", () => {
+  btnClearArchive.addEventListener("click", () => {
     if (!confirm("确定清空全部历史记录吗？")) return;
-    localStorage.removeItem(HISTORY_KEY);
-    renderHistory();
-    showToast("历史记录已清空");
+    localStorage.removeItem(ARCHIVE_KEY);
+    renderArchive();
+    toast("已清空");
   });
 
-  // 初始化加载历史
-  renderHistory();
+  renderArchive();
 </script>
 </body>
 </html>
