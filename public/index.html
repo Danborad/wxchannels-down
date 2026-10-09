@@ -1,0 +1,822 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>微信视频号下载 - 原画无水印直链解析</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎬</text></svg>">
+  <style>
+    :root {
+      --primary: #07c160;
+      --primary-hover: #06ad56;
+      --primary-light: rgba(7, 193, 96, 0.08);
+      --bg: #f8fafc;
+      --surface: #ffffff;
+      --border: #e2e8f0;
+      --text: #0f172a;
+      --text-sub: #475569;
+      --text-muted: #94a3b8;
+      --danger: #ef4444;
+      --danger-light: #fef2f2;
+      --radius: 12px;
+      --shadow-sm: 0 1px 2px rgba(0,0,0,0.04);
+      --shadow-md: 0 4px 16px -2px rgba(0,0,0,0.06);
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #090d16;
+        --surface: #111827;
+        --border: #1f2937;
+        --text: #f9fafb;
+        --text-sub: #9ca3af;
+        --text-muted: #64748b;
+        --primary-light: rgba(7, 193, 96, 0.15);
+        --danger-light: #371212;
+        --shadow-sm: 0 1px 2px rgba(0,0,0,0.3);
+        --shadow-md: 0 4px 16px -2px rgba(0,0,0,0.4);
+      }
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 18px 12px;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .app {
+      width: 100%;
+      max-width: 780px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    /* 顶部简约 Header */
+    .brand-header {
+      text-align: center;
+      padding: 4px 0;
+    }
+
+    .brand-title {
+      font-size: 19px;
+      font-weight: 700;
+      letter-spacing: -0.3px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+
+    .brand-desc {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    /* 卡片通用 */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow-sm);
+    }
+
+    /* 输入搜索条 */
+    .search-box {
+      padding: 8px 10px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .input-inner {
+      flex: 1;
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+
+    .url-input {
+      width: 100%;
+      padding: 9px 58px 9px 12px;
+      border: 1.5px solid var(--border);
+      border-radius: 8px;
+      background: var(--bg);
+      color: var(--text);
+      font-size: 14px;
+      outline: none;
+      transition: all 0.2s;
+    }
+
+    .url-input:focus {
+      border-color: var(--primary);
+      background: var(--surface);
+    }
+
+    .paste-btn {
+      position: absolute;
+      right: 6px;
+      background: none;
+      border: none;
+      color: var(--primary);
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      padding: 4px 6px;
+      border-radius: 4px;
+    }
+
+    .paste-btn:hover {
+      background: var(--primary-light);
+    }
+
+    .btn-submit {
+      background: var(--primary);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 9px 18px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.2s;
+    }
+
+    .btn-submit:hover {
+      background: var(--primary-hover);
+    }
+
+    .btn-submit:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    /* 状态提示 */
+    .alert-banner {
+      padding: 8px 12px;
+      border-radius: 8px;
+      font-size: 13px;
+      display: none;
+    }
+
+    .alert-banner.err {
+      display: block;
+      background: var(--danger-light);
+      border: 1px solid var(--danger);
+      color: var(--danger);
+    }
+
+    /* 解析结果区：紧凑单屏展示 */
+    .result-section {
+      display: none;
+      padding: 12px;
+    }
+
+    .result-grid {
+      display: flex;
+      gap: 14px;
+    }
+
+    /* 左栏：视频播放/图集 */
+    .media-box {
+      flex: 0 0 280px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .video-view {
+      width: 100%;
+      max-height: 380px;
+      aspect-ratio: 9/16;
+      border-radius: 8px;
+      background: #000;
+      object-fit: contain;
+    }
+
+    .album-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
+      width: 100%;
+    }
+
+    .album-item {
+      aspect-ratio: 1;
+      border-radius: 6px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+    }
+
+    .album-item img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    /* 右栏：详情与下载 */
+    .meta-box {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .author-info {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .author-avatar {
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 1px solid var(--border);
+    }
+
+    .author-name {
+      font-size: 14px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .author-badge {
+      width: 14px;
+      height: 14px;
+    }
+
+    .video-desc {
+      font-size: 13px;
+      color: var(--text-sub);
+      background: var(--bg);
+      border-radius: 6px;
+      padding: 8px 10px;
+      line-height: 1.45;
+      max-height: 80px;
+      overflow-y: auto;
+      word-break: break-all;
+    }
+
+    .badge-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    .badge-bar span {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      padding: 2px 7px;
+      border-radius: 10px;
+    }
+
+    .btn-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+    }
+
+    .btn-act {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      padding: 8px 10px;
+      border-radius: 7px;
+      font-size: 13px;
+      font-weight: 600;
+      text-decoration: none;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      color: var(--text);
+      cursor: pointer;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+
+    .btn-act:hover {
+      border-color: var(--primary);
+      color: var(--primary);
+    }
+
+    .btn-act.main {
+      grid-column: span 2;
+      background: var(--primary);
+      border-color: var(--primary);
+      color: #fff;
+    }
+
+    .btn-act.main:hover {
+      background: var(--primary-hover);
+    }
+
+    /* 历史记录卡片 */
+    .history-card {
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .history-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-sub);
+    }
+
+    .history-count {
+      font-size: 11px;
+      color: var(--text-muted);
+      font-weight: 400;
+    }
+
+    .btn-text-clear {
+      background: none;
+      border: none;
+      font-size: 12px;
+      color: var(--text-muted);
+      cursor: pointer;
+    }
+
+    .btn-text-clear:hover {
+      color: var(--danger);
+    }
+
+    .history-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      max-height: 260px;
+      overflow-y: auto;
+    }
+
+    .history-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 6px 8px;
+      border-radius: 8px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      transition: all 0.2s;
+    }
+
+    .history-item:hover {
+      border-color: var(--primary);
+    }
+
+    .history-thumb {
+      width: 40px;
+      height: 40px;
+      border-radius: 5px;
+      object-fit: cover;
+      background: #000;
+      flex-shrink: 0;
+      cursor: pointer;
+    }
+
+    .history-info {
+      flex: 1;
+      min-width: 0;
+      cursor: pointer;
+    }
+
+    .history-title {
+      font-size: 12px;
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .history-sub {
+      font-size: 11px;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .history-btns {
+      display: flex;
+      gap: 4px;
+      flex-shrink: 0;
+    }
+
+    .btn-sm-icon {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text-sub);
+      padding: 3px 8px;
+      border-radius: 5px;
+      font-size: 11px;
+      cursor: pointer;
+      text-decoration: none;
+    }
+
+    .btn-sm-icon:hover {
+      border-color: var(--primary);
+      color: var(--primary);
+    }
+
+    /* 移动端适配 (超紧凑一屏自适应) */
+    @media (max-width: 640px) {
+      body { padding: 10px 8px; }
+      .app { gap: 10px; }
+      .result-grid {
+        flex-direction: column;
+        gap: 10px;
+      }
+      .media-box {
+        flex: 1;
+        width: 100%;
+      }
+      .video-view {
+        max-height: 280px;
+      }
+      .video-desc {
+        max-height: 60px;
+      }
+      .btn-actions {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+
+    /* Toast */
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0,0,0,0.85);
+      color: #fff;
+      padding: 7px 16px;
+      border-radius: 20px;
+      font-size: 12px;
+      display: none;
+      z-index: 1000;
+    }
+  </style>
+</head>
+<body>
+
+<div class="app">
+  <!-- 极简 Title（无齿轮，无后台痕迹） -->
+  <header class="brand-header">
+    <div class="brand-title">🎬 微信视频号下载</div>
+    <div class="brand-desc">无水印原画视频与图集直链一键提取</div>
+  </header>
+
+  <!-- 搜索输入 -->
+  <div class="card search-box">
+    <div class="input-inner">
+      <input type="text" id="urlInput" class="url-input" placeholder="在此粘贴微信视频号分享链接" autocomplete="off">
+      <button class="paste-btn" id="btnPaste">📋 粘贴</button>
+    </div>
+    <button class="btn-submit" id="btnParse">提取视频</button>
+  </div>
+
+  <div id="alertBox" class="alert-banner"></div>
+
+  <!-- 结果面板 (紧凑单屏) -->
+  <div id="resultCard" class="card result-section">
+    <div class="result-grid">
+      <!-- 左：媒体 -->
+      <div class="media-box">
+        <video id="videoView" class="video-view" controls playsinline preload="metadata"></video>
+        <div id="albumView" class="album-grid" style="display: none;"></div>
+      </div>
+
+      <!-- 右：详情与按钮 -->
+      <div class="meta-box">
+        <div class="author-info">
+          <img id="authorAvatar" class="author-avatar" src="" alt="" onerror="this.style.display='none'">
+          <div>
+            <div class="author-name">
+              <span id="authorName">作者</span>
+              <img id="authorBadge" class="author-badge" src="" style="display: none;">
+            </div>
+            <div id="videoTime" style="font-size: 11px; color: var(--text-muted);">-</div>
+          </div>
+        </div>
+
+        <div id="videoDesc" class="video-desc"></div>
+
+        <div class="badge-bar">
+          <span>👍 <b id="statLike">0</b></span>
+          <span>❤️ <b id="statFav">0</b></span>
+          <span>↗️ <b id="statForward">0</b></span>
+          <span>💬 <b id="statComment">0</b></span>
+        </div>
+
+        <div class="btn-actions">
+          <a id="btnDownload" class="btn-act main" href="#" target="_blank">⬇️ 一键下载原画视频 (MP4)</a>
+          <button id="btnCopyLink" class="btn-act">📋 复制直链</button>
+          <button id="btnCopyText" class="btn-act">📄 复制文案</button>
+          <a id="btnCover" class="btn-act" href="#" target="_blank">🖼️ 封面图</a>
+          <a id="btnBgm" class="btn-act" style="display: none;" href="#" target="_blank">🎵 背景音乐</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 浏览器缓存历史记录 -->
+  <div class="card history-card" id="historyCard" style="display: none;">
+    <div class="history-header">
+      <span>最近解析记录 <span id="historyCount" class="history-count"></span></span>
+      <button class="btn-text-clear" id="btnClearHistory">清空记录</button>
+    </div>
+    <div class="history-list" id="historyList"></div>
+  </div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script>
+  const urlInput = document.getElementById("urlInput");
+  const btnPaste = document.getElementById("btnPaste");
+  const btnParse = document.getElementById("btnParse");
+  const alertBox = document.getElementById("alertBox");
+  const resultCard = document.getElementById("resultCard");
+  const toast = document.getElementById("toast");
+
+  const videoView = document.getElementById("videoView");
+  const albumView = document.getElementById("albumView");
+  const authorAvatar = document.getElementById("authorAvatar");
+  const authorName = document.getElementById("authorName");
+  const authorBadge = document.getElementById("authorBadge");
+  const videoTime = document.getElementById("videoTime");
+  const videoDesc = document.getElementById("videoDesc");
+  const btnDownload = document.getElementById("btnDownload");
+  const btnCopyLink = document.getElementById("btnCopyLink");
+  const btnCopyText = document.getElementById("btnCopyText");
+  const btnCover = document.getElementById("btnCover");
+  const btnBgm = document.getElementById("btnBgm");
+
+  const historyCard = document.getElementById("historyCard");
+  const historyList = document.getElementById("historyList");
+  const historyCount = document.getElementById("historyCount");
+  const btnClearHistory = document.getElementById("btnClearHistory");
+
+  let currentData = null;
+  const HISTORY_KEY = "wx_channels_history_v1";
+
+  function showToast(msg) {
+    toast.textContent = msg;
+    toast.style.display = "block";
+    setTimeout(() => { toast.style.display = "none"; }, 2400);
+  }
+
+  function showAlert(msg) {
+    alertBox.textContent = msg;
+    alertBox.className = "alert-banner err";
+  }
+
+  function hideAlert() {
+    alertBox.className = "alert-banner";
+    alertBox.textContent = "";
+  }
+
+  // 剪贴板快速粘贴
+  btnPaste.addEventListener("click", async () => {
+    try {
+      const text = await navigator.clipboard.readText();
+      if (text) {
+        urlInput.value = text;
+        showToast("已粘贴剪贴板内容");
+      }
+    } catch (_) {
+      urlInput.focus();
+    }
+  });
+
+  // 解析
+  btnParse.addEventListener("click", doParse);
+  urlInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") doParse();
+  });
+
+  async function doParse() {
+    const raw = urlInput.value.trim();
+    if (!raw) {
+      showAlert("请先粘贴视频号分享链接");
+      return;
+    }
+    const match = raw.match(/https:\/\/weixin\.qq\.com\/sph\/[a-zA-Z0-9_-]+/);
+    const targetUrl = match ? match[0] : raw;
+
+    hideAlert();
+    btnParse.disabled = true;
+    btnParse.textContent = "解析中...";
+
+    try {
+      const resp = await fetch("/api/parse", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: targetUrl }),
+      });
+      const res = await resp.json();
+      if (!res.success) throw new Error(res.error || "解析失败");
+
+      currentData = res.data;
+      renderResult(res.data);
+      saveToHistory(targetUrl, res.data);
+      showToast("解析成功！");
+    } catch (err) {
+      showAlert(err.message);
+    } finally {
+      btnParse.disabled = false;
+      btnParse.textContent = "提取视频";
+    }
+  }
+
+  function renderResult(data) {
+    const { author, feed } = data;
+
+    authorName.textContent = author.nickname || "视频作者";
+    if (author.headImgUrl) {
+      authorAvatar.src = author.headImgUrl;
+      authorAvatar.style.display = "block";
+    } else {
+      authorAvatar.style.display = "none";
+    }
+
+    if (author.authInfo) {
+      authorBadge.src = author.authInfo;
+      authorBadge.style.display = "inline-block";
+    } else {
+      authorBadge.style.display = "none";
+    }
+
+    videoTime.textContent = feed.createTime ? new Date(feed.createTime * 1000).toLocaleString("zh-CN") : "";
+    videoDesc.textContent = feed.description || "（无文案标题）";
+
+    document.getElementById("statLike").textContent = feed.stats.likeCount || "0";
+    document.getElementById("statFav").textContent = feed.stats.favCount || "0";
+    document.getElementById("statForward").textContent = feed.stats.forwardCount || "0";
+    document.getElementById("statComment").textContent = feed.stats.commentCount || "0";
+
+    if (feed.videoUrl) {
+      videoView.style.display = "block";
+      albumView.style.display = "none";
+      videoView.src = feed.videoUrl;
+      if (feed.coverUrl) videoView.poster = feed.coverUrl;
+
+      const fn = (author.nickname + "_" + (feed.description ? feed.description.slice(0, 25) : "video")).replace(/[\\/:*?"<>|]/g, "_") + ".mp4";
+      btnDownload.href = `/api/download?url=${encodeURIComponent(feed.videoUrl)}&filename=${encodeURIComponent(fn)}`;
+      btnDownload.style.display = "inline-flex";
+    } else {
+      videoView.style.display = "none";
+      btnDownload.style.display = "none";
+      if (feed.picList && feed.picList.length > 0) {
+        albumView.style.display = "grid";
+        albumView.innerHTML = feed.picList.map((p) => `
+          <div class="album-item">
+            <a href="${p}" target="_blank"><img src="${p}" loading="lazy"></a>
+          </div>
+        `).join("");
+      }
+    }
+
+    if (feed.coverUrl) {
+      btnCover.href = feed.coverUrl;
+      btnCover.style.display = "inline-flex";
+    } else {
+      btnCover.style.display = "none";
+    }
+
+    if (feed.bgm && feed.bgm.url) {
+      btnBgm.href = `/api/download?url=${encodeURIComponent(feed.bgm.url)}&filename=${encodeURIComponent(feed.bgm.name || "bgm")}.mp3`;
+      btnBgm.style.display = "inline-flex";
+    } else {
+      btnBgm.style.display = "none";
+    }
+
+    resultCard.style.display = "block";
+  }
+
+  btnCopyLink.addEventListener("click", () => {
+    if (!currentData?.feed?.videoUrl) return;
+    navigator.clipboard.writeText(currentData.feed.videoUrl).then(() => showToast("已复制原画视频直链！"));
+  });
+
+  btnCopyText.addEventListener("click", () => {
+    if (!currentData?.feed?.description) return;
+    navigator.clipboard.writeText(currentData.feed.description).then(() => showToast("已复制视频文案！"));
+  });
+
+  // ---------------- 本地历史记录 (localStorage) ----------------
+  function getHistory() {
+    try {
+      return JSON.parse(localStorage.getItem(HISTORY_KEY) || "[]");
+    } catch (_) {
+      return [];
+    }
+  }
+
+  function saveToHistory(shareUrl, data) {
+    const list = getHistory();
+    const id = data.exportId || shareUrl;
+    // 去重，移到最前
+    const filtered = list.filter((item) => item.id !== id);
+    filtered.unshift({
+      id,
+      shareUrl,
+      title: data.feed.description || "无标题视频",
+      author: data.author.nickname || "未知作者",
+      cover: data.feed.coverUrl || (data.feed.picList && data.feed.picList[0]) || "",
+      videoUrl: data.feed.videoUrl || "",
+      time: Date.now(),
+      payload: data,
+    });
+    // 最多保留 25 条
+    const limited = filtered.slice(0, 25);
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(limited));
+    renderHistory();
+  }
+
+  function renderHistory() {
+    const list = getHistory();
+    if (list.length === 0) {
+      historyCard.style.display = "none";
+      return;
+    }
+    historyCard.style.display = "flex";
+    historyCount.textContent = `(${list.length})`;
+    historyList.innerHTML = list.map((item, idx) => `
+      <div class="history-item">
+        <img class="history-thumb" src="${item.cover}" alt="" onclick="loadHistoryItem(${idx})" onerror="this.style.display='none'">
+        <div class="history-info" onclick="loadHistoryItem(${idx})">
+          <div class="history-title">${item.title}</div>
+          <div class="history-sub">
+            <span>${item.author}</span>
+            <span>·</span>
+            <span>${new Date(item.time).toLocaleDateString()}</span>
+          </div>
+        </div>
+        <div class="history-btns">
+          ${item.videoUrl ? `<a class="btn-sm-icon" href="/api/download?url=${encodeURIComponent(item.videoUrl)}&filename=${encodeURIComponent((item.title || 'video').slice(0, 20) + '.mp4')}" target="_blank">下载</a>` : ''}
+          <button class="btn-sm-icon" onclick="copyHistoryLink('${idx}')">复制</button>
+          <button class="btn-sm-icon" style="color:var(--danger)" onclick="deleteHistoryItem(${idx})">×</button>
+        </div>
+      </div>
+    `).join("");
+  }
+
+  window.loadHistoryItem = function(idx) {
+    const list = getHistory();
+    if (list[idx]) {
+      currentData = list[idx].payload;
+      renderResult(list[idx].payload);
+      showToast("已载入历史记录");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  };
+
+  window.copyHistoryLink = function(idx) {
+    const list = getHistory();
+    if (list[idx] && list[idx].videoUrl) {
+      navigator.clipboard.writeText(list[idx].videoUrl).then(() => showToast("已复制视频直链！"));
+    }
+  };
+
+  window.deleteHistoryItem = function(idx) {
+    const list = getHistory();
+    list.splice(idx, 1);
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(list));
+    renderHistory();
+  };
+
+  btnClearHistory.addEventListener("click", () => {
+    if (!confirm("确定清空全部历史记录吗？")) return;
+    localStorage.removeItem(HISTORY_KEY);
+    renderHistory();
+    showToast("历史记录已清空");
+  });
+
+  // 初始化加载历史
+  renderHistory();
+</script>
+</body>
+</html>

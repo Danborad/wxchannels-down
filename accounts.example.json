@@ -1,0 +1,17 @@
+{
+  "adminPassword": "admin",
+  "accounts": [
+    {
+      "id": "acc_example",
+      "userId": "your_yuanbao_user_id",
+      "nickname": "元宝账号 1",
+      "cookie": "hy_user=...; hy_token=...",
+      "status": "active",
+      "errorMsg": "",
+      "callCount": 0,
+      "successCount": 0,
+      "addedAt": 1728400000000,
+      "lastUsedAt": null
+    }
+  ]
+}

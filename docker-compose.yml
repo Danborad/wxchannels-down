@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  wxchannels-down:
+    build: .
+    container_name: wxchannels-down
+    restart: unless-stopped
+    ports:
+      - "3888:3888"
+    environment:
+      - PORT=3888
+
+      # 可以在这里预设元宝 Cookie（可选，页面中也可随时设置）
+      # - YUANBAO_COOKIE=your_cookie_here

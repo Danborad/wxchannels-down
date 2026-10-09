@@ -1,0 +1,18 @@
+{
+  "name": "wxchannels-down",
+  "version": "2.0.0",
+  "description": "微信视频号分享链接无水印原画直链提取与下载工具 (多账号轮询容灾池 + 管理后台)",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "keywords": [
+    "wechat",
+    "channels",
+    "video-downloader",
+    "yuanbao"
+  ],
+  "author": "Danborad",
+  "license": "MIT"
+}
