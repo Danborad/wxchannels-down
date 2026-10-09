@@ -96,6 +96,25 @@ docker compose up -d
 
 ---
 
+## 💖 致谢与灵感来源 (Acknowledgements & References)
+
+本项目在开发过程中，深受开源社区众多前辈与优秀项目的启发，特别鸣谢以下项目与作者的无私分享：
+
+- 🌟 **[ltaoo/wx_channels_download](https://github.com/ltaoo/wx_channels_download)**  
+  本项目的核心启发者！感谢作者开源的微信视频号解析器，以及利用腾讯元宝接口转换直链的开拓性思路。
+- 🌟 **[kanadeblisst00/WechatVideoSniffer2.0](https://github.com/kanadeblisst00/WechatVideoSniffer2.0)**  
+  微信视频号网络请求抓包嗅探与视频流协议分析参考。
+- 🌟 **[Hanson/WechatSphDecrypt](https://github.com/Hanson/WechatSphDecrypt)**  
+  微信视频号后端解密与流媒体封装逆向研究。
+- 🌟 **[res-downloader](https://github.com/putyy/res-downloader)**  
+  网络资源嗅探与真实原画母带（剥离 `X-snsvideoflag` 还原 1080P 超高码率）下载方案参考。
+- 🌟 **[wxchannel.solua.one](https://wxchannel.solua.one/)**  
+  优秀的第三方社区网页版实现与 UI 布局参考。
+
+向所有为开源社区做出贡献的开发者致敬！
+
+---
+
 ## 开源协议
 
 本项目采用 [MIT License](LICENSE) 授权。仅供个人学习、自动化测试与离线备份研究使用。
