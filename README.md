@@ -2,7 +2,8 @@
 
 > 🎬 基于腾讯元宝开放解析接口与微信官方 Finder Preview 协议，实现**免抓包、免证书代理、无需在微信客户端解密**，直接提取微信视频号**原画无水印视频直链**、图集和音频，支持一键下载。
 
-项目开源地址：[https://github.com/Danborad/wxchannels-down](https://github.com/Danborad/wxchannels-down)
+项目开源地址：[https://github.com/Danborad/wxchannels-down](https://github.com/Danborad/wxchannels-down)  
+在线体验 Demo：[https://wx.znas.cc.cd/](https://wx.znas.cc.cd/)
 
 ---
 
