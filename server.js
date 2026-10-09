@@ -845,6 +845,49 @@ async function getFeedInfoFromWechat(exportId, generalToken) {
   return result;
 }
 
+// 规范化提取原画无损直链（剔除 X-snsvideoflag 等降码率标记，还原母带视频）
+function buildCleanVideoUrl(rawUrl) {
+  if (!rawUrl) return "";
+  try {
+    const u = new URL(rawUrl);
+    const encfilekey = u.searchParams.get("encfilekey");
+    const token = u.searchParams.get("token");
+    if (encfilekey && token) {
+      // 腾讯视频 CDN 核心机制：只要去掉所有附加参数，仅留 encfilekey 和 token，即为未压缩原画视频！
+      const clean = new URL(`${u.origin}${u.pathname}`);
+      clean.searchParams.set("encfilekey", encfilekey);
+      clean.searchParams.set("token", token);
+      return clean.toString();
+    }
+    u.searchParams.delete("X-snsvideoflag");
+    u.searchParams.delete("x-snsvideoflag");
+    return u.toString();
+  } catch (_) {
+    return rawUrl.replace(/[?&]X-snsvideoflag=[^&]*/gi, "");
+  }
+}
+
+// 快速探测媒体文件大小 (MB)
+async function probeMediaSize(url) {
+  if (!url) return { sizeText: "", bytes: 0 };
+  try {
+    const res = await fetch(url, {
+      method: "HEAD",
+      signal: AbortSignal.timeout(2500),
+      headers: { "User-Agent": "Mozilla/5.0" },
+    });
+    const cl = res.headers.get("content-length");
+    if (cl) {
+      const bytes = parseInt(cl, 10);
+      if (bytes > 0) {
+        const mb = (bytes / (1024 * 1024)).toFixed(1);
+        return { sizeText: `${mb} MB`, bytes };
+      }
+    }
+  } catch (_) {}
+  return { sizeText: "", bytes: 0 };
+}
+
 // 统一视频解析（自动进行账号池多账号轮询与自动容灾切替）
 async function parseChannelsVideo(shareUrl) {
   const matched = shareUrl.match(SPH_URL_REGEX);
@@ -885,11 +928,20 @@ async function parseChannelsVideo(shareUrl) {
       const feedInfo = feedResult.data?.feedInfo || {};
       const authorInfo = feedResult.data?.authorInfo || {};
 
-      const bestVideoUrl =
+      const defaultVideoUrl =
         feedInfo.h264VideoInfo?.videoUrl ||
         feedInfo.videoUrl ||
         feedInfo.h265VideoInfo?.videoUrl ||
         "";
+
+      // 提取未压缩原画视频直链 (还原 1080P/超高码率母带)
+      const originVideoUrl = buildCleanVideoUrl(defaultVideoUrl);
+
+      // 并发探测原画与压缩版本的文件大小
+      const [originProbe, defaultProbe] = await Promise.all([
+        probeMediaSize(originVideoUrl),
+        probeMediaSize(defaultVideoUrl),
+      ]);
 
       // 标记该账号调用成功
       accountManager.markSuccess(account.id);
@@ -905,8 +957,11 @@ async function parseChannelsVideo(shareUrl) {
           feed: {
             description: feedInfo.description || parseData.desc || "",
             coverUrl: feedInfo.coverUrl || parseData.cover_url || "",
-            videoUrl: bestVideoUrl,
-            rawVideoUrl: bestVideoUrl.replace(/[?&]X-snsvideoflag=[^&]*/g, ""),
+            videoUrl: originVideoUrl, // 默认主直链指向原画视频
+            rawVideoUrl: originVideoUrl,
+            previewVideoUrl: defaultVideoUrl, // 预览轻量播放流
+            originSizeText: originProbe.sizeText || "",
+            previewSizeText: defaultProbe.sizeText || "",
             createTime: feedInfo.createtime ? Number(feedInfo.createtime) : null,
             stats: {
               likeCount: feedInfo.likeCountFmt || "0",

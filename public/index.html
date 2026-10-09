@@ -648,14 +648,22 @@
               <polyline points="7 10 12 15 17 10"></polyline>
               <line x1="12" y1="15" x2="12" y2="3"></line>
             </svg>
-            <span>下载原画 MP4</span>
+            <span id="btnDownloadText">下载 1080P 原画视频</span>
+          </a>
+          <a id="btnDownloadPreview" class="cmd-btn" href="#" target="_blank" style="display: none;">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="7 10 12 15 17 10"></polyline>
+              <line x1="12" y1="15" x2="12" y2="3"></line>
+            </svg>
+            <span id="btnDownloadPreviewText">下载 720P 流畅版</span>
           </a>
           <button id="btnCopyLink" class="cmd-btn">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
               <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
             </svg>
-            <span>复制直链</span>
+            <span>复制原画直链</span>
           </button>
           <button id="btnCopyText" class="cmd-btn">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -704,6 +712,9 @@
   const postTime = document.getElementById("postTime");
   const postDesc = document.getElementById("postDesc");
   const btnDownload = document.getElementById("btnDownload");
+  const btnDownloadText = document.getElementById("btnDownloadText");
+  const btnDownloadPreview = document.getElementById("btnDownloadPreview");
+  const btnDownloadPreviewText = document.getElementById("btnDownloadPreviewText");
   const btnCopyLink = document.getElementById("btnCopyLink");
   const btnCopyText = document.getElementById("btnCopyText");
   const btnCover = document.getElementById("btnCover");
@@ -815,15 +826,32 @@
     if (feed.videoUrl) {
       videoView.style.display = "block";
       albumView.style.display = "none";
-      videoView.src = feed.videoUrl;
+      videoView.src = feed.previewVideoUrl || feed.videoUrl;
       if (feed.coverUrl) videoView.poster = feed.coverUrl;
 
-      const fn = (author.nickname + "_" + (feed.description ? feed.description.slice(0, 25) : "video")).replace(/[\\/:*?"<>|]/g, "_") + ".mp4";
-      btnDownload.href = `/api/download?url=${encodeURIComponent(feed.videoUrl)}&filename=${encodeURIComponent(fn)}`;
+      const titlePart = (author.nickname + "_" + (feed.description ? feed.description.slice(0, 25) : "video")).replace(/[\\/:*?"<>|]/g, "_");
+
+      // 原画 1080P 未压缩母带
+      const originFn = titlePart + "_原画1080P.mp4";
+      btnDownload.href = `/api/download?url=${encodeURIComponent(feed.videoUrl)}&filename=${encodeURIComponent(originFn)}`;
       btnDownload.style.display = "inline-flex";
+      const originSize = feed.originSizeText ? ` (${feed.originSizeText})` : "";
+      btnDownloadText.textContent = `下载 1080P 原画母带${originSize}`;
+
+      // 720P 压缩流畅版
+      if (feed.previewVideoUrl && feed.previewVideoUrl !== feed.videoUrl) {
+        const previewFn = titlePart + "_流畅720P.mp4";
+        btnDownloadPreview.href = `/api/download?url=${encodeURIComponent(feed.previewVideoUrl)}&filename=${encodeURIComponent(previewFn)}`;
+        btnDownloadPreview.style.display = "inline-flex";
+        const previewSize = feed.previewSizeText ? ` (${feed.previewSizeText})` : "";
+        btnDownloadPreviewText.textContent = `下载 720P 流畅版${previewSize}`;
+      } else {
+        btnDownloadPreview.style.display = "none";
+      }
     } else {
       videoView.style.display = "none";
       btnDownload.style.display = "none";
+      btnDownloadPreview.style.display = "none";
       if (feed.picList && feed.picList.length > 0) {
         albumView.style.display = "grid";
         albumView.innerHTML = feed.picList.map((p) => `
