@@ -678,7 +678,7 @@
               <polyline points="7 10 12 15 17 10"></polyline>
               <line x1="12" y1="15" x2="12" y2="3"></line>
             </svg>
-            <span id="btnDownloadText">下载 1080P 原画视频</span>
+            <span id="btnDownloadText">⬇️ 下载视频</span>
           </a>
           <a id="btnDownloadPreview" class="cmd-btn" href="#" target="_blank" style="display: none;">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -686,7 +686,7 @@
               <polyline points="7 10 12 15 17 10"></polyline>
               <line x1="12" y1="15" x2="12" y2="3"></line>
             </svg>
-            <span id="btnDownloadPreviewText">下载 720P 流畅版</span>
+            <span id="btnDownloadPreviewText">流畅版</span>
           </a>
           <button id="btnCopyLink" class="cmd-btn">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -864,20 +864,20 @@
 
       const titlePart = (author.nickname + "_" + (feed.description ? feed.description.slice(0, 25) : "video")).replace(/[\\/:*?"<>|]/g, "_");
 
-      // 原画 1080P 未压缩母带
-      const originFn = titlePart + "_原画1080P.mp4";
+      // 主下载：后台已自动实测挑选可用的最高画质直链
+      const originFn = titlePart + "_最高画质.mp4";
       btnDownload.href = `/api/download?url=${encodeURIComponent(feed.videoUrl)}&filename=${encodeURIComponent(originFn)}`;
       btnDownload.style.display = "inline-flex";
-      const originSize = feed.originSizeText ? ` (${feed.originSizeText})` : "";
-      btnDownloadText.textContent = `下载 1080P 原画母带${originSize}`;
+      const originSize = feed.originSizeText ? ` ${feed.originSizeText}` : "";
+      btnDownloadText.textContent = `⬇️ 下载视频${originSize}`;
 
-      // 720P 压缩流畅版
+      // 次级：更小体积的流畅版
       if (feed.previewVideoUrl && feed.previewVideoUrl !== feed.videoUrl) {
-        const previewFn = titlePart + "_流畅720P.mp4";
+        const previewFn = titlePart + "_流畅版.mp4";
         btnDownloadPreview.href = `/api/download?url=${encodeURIComponent(feed.previewVideoUrl)}&filename=${encodeURIComponent(previewFn)}`;
         btnDownloadPreview.style.display = "inline-flex";
-        const previewSize = feed.previewSizeText ? ` (${feed.previewSizeText})` : "";
-        btnDownloadPreviewText.textContent = `下载 720P 流畅版${previewSize}`;
+        const previewSize = feed.previewSizeText ? ` ${feed.previewSizeText}` : "";
+        btnDownloadPreviewText.textContent = `流畅版${previewSize}`;
       } else {
         btnDownloadPreview.style.display = "none";
       }

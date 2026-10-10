@@ -890,6 +890,24 @@ function buildCleanVideoUrl(rawUrl) {
     .replace(/\?&/, "?");
 }
 
+// 从原始 URL 中安全移除指定查询参数（保留其余参数的原始编码，不破坏签名）
+function removeParams(rawUrl, keysToRemove) {
+  if (!rawUrl) return rawUrl;
+  const qi = rawUrl.indexOf("?");
+  if (qi < 0) return rawUrl;
+  const base = rawUrl.slice(0, qi);
+  const kept = rawUrl
+    .slice(qi + 1)
+    .split("&")
+    .filter(Boolean)
+    .filter((pair) => {
+      const eq = pair.indexOf("=");
+      const key = eq >= 0 ? pair.slice(0, eq) : pair;
+      return !keysToRemove.includes(key);
+    });
+  return kept.length ? `${base}?${kept.join("&")}` : base;
+}
+
 // 探测媒体可下载性与文件大小 (MB)，同时兼容不支持 HEAD 的 CDN
 async function probeMedia(url) {
   if (!url) return { ok: false, sizeText: "", bytes: 0 };
@@ -980,20 +998,42 @@ async function parseChannelsVideo(shareUrl) {
         feedInfo.h265VideoInfo?.videoUrl ||
         "";
 
-      // 提取未压缩原画视频直链 (还原 1080P/超高码率母带)
-      let originVideoUrl = buildCleanVideoUrl(defaultVideoUrl);
+      // 构建多个候选清晰度直链（同时覆盖 h264 / h265 两路流），实测挑选体积最大的可用原画母带
+      const h264Url = feedInfo.h264VideoInfo?.videoUrl || "";
+      const h265Url = feedInfo.h265VideoInfo?.videoUrl || "";
 
-      // 并发探测原画与压缩版本的可下载性 + 文件大小
-      const [originProbe, defaultProbe] = await Promise.all([
-        probeMedia(originVideoUrl),
-        probeMedia(defaultVideoUrl),
-      ]);
-
-      // 若原画母带直链不可下载，则安全降级回默认可播放直链
-      if (!originProbe.ok && defaultProbe.ok) {
-        console.log(`[解析] 原画母带直链不可用，自动降级为默认直链`);
-        originVideoUrl = defaultVideoUrl;
+      const seedUrls = [h264Url, h265Url, feedInfo.videoUrl].filter(Boolean);
+      const rawCandidates = [];
+      for (const seed of seedUrls) {
+        rawCandidates.push(buildCleanVideoUrl(seed)); // 仅 encfilekey+token(+uzid)：原画母带
+        rawCandidates.push(removeParams(seed, ["X-snsvideoflag", "basedata"])); // 去转码标记保住签名
+        rawCandidates.push(removeParams(seed, ["X-snsvideoflag"])); // 仅去码率标记
+        rawCandidates.push(seed); // 兜底：默认可播放流
       }
+
+      const seen = new Set();
+      const candidateUrls = rawCandidates.filter((u) => u && !seen.has(u) && seen.add(u));
+
+      const probed = await Promise.all(
+        candidateUrls.map(async (u) => {
+          const r = await probeMedia(u);
+          return { url: u, ok: r.ok, bytes: r.bytes, sizeText: r.sizeText };
+        })
+      );
+      const usable = probed.filter((p) => p.ok).sort((a, b) => (b.bytes || 0) - (a.bytes || 0));
+      const withSize = usable.filter((p) => p.bytes > 0);
+
+      const bestMedia = withSize[0] || usable[0] || { url: defaultVideoUrl, sizeText: "", bytes: 0 };
+      const lightMedia = withSize.length > 1 ? withSize[withSize.length - 1] : bestMedia;
+
+      const originVideoUrl = bestMedia.url;
+      const previewVideoUrl = lightMedia.url;
+      const originSizeText = bestMedia.sizeText;
+      const previewSizeText = lightMedia.sizeText;
+
+      console.log(
+        `[解析] 候选 ${candidateUrls.length} 条，可用 ${usable.length} 条，最佳体积 ${originSizeText || "未知"}，流畅版 ${previewSizeText || "未知"}`
+      );
 
       // 标记该账号调用成功
       accountManager.markSuccess(account.id);
@@ -1009,11 +1049,11 @@ async function parseChannelsVideo(shareUrl) {
           feed: {
             description: feedInfo.description || parseData.desc || "",
             coverUrl: feedInfo.coverUrl || parseData.cover_url || "",
-            videoUrl: originVideoUrl, // 默认主直链指向原画视频
+            videoUrl: originVideoUrl, // 主直链指向可用的最高画质
             rawVideoUrl: originVideoUrl,
-            previewVideoUrl: defaultVideoUrl, // 预览轻量播放流
-            originSizeText: originProbe.ok ? originProbe.sizeText : "",
-            previewSizeText: defaultProbe.sizeText || "",
+            previewVideoUrl: previewVideoUrl, // 轻量流畅版
+            originSizeText: originSizeText,
+            previewSizeText: previewSizeText,
             createTime: feedInfo.createtime ? Number(feedInfo.createtime) : null,
             stats: {
               likeCount: feedInfo.likeCountFmt || "0",
@@ -1163,18 +1203,23 @@ const server = http.createServer(async (req, res) => {
         signal: abortController.signal,
       });
 
-      // 若原链接失效，尝试自动降级：剔除所有降码率标记后重试
+      // 若原链接失效/被拒，尝试多个等价变体自动降级重试
       if (!response.ok && response.status !== 206 && !abortController.signal.aborted) {
-        try {
-          const altUrl = buildCleanVideoUrl(targetUrl.replace(/&X-snsvideoflag=[^&]*/gi, ""));
-          if (altUrl && altUrl !== targetUrl) {
-            response = await fetch(altUrl, {
-              method: req.method,
-              headers: mediaHeaders,
-              signal: abortController.signal,
-            });
-          }
-        } catch (_) {}
+        const fallbacks = [
+          buildCleanVideoUrl(targetUrl),
+          removeParams(targetUrl, ["X-snsvideoflag", "basedata"]),
+          removeParams(targetUrl, ["X-snsvideoflag"]),
+        ].filter((u) => u && u !== targetUrl);
+        for (const alt of fallbacks) {
+          try {
+            const r2 = await fetch(alt, { method: req.method, headers: mediaHeaders, signal: abortController.signal });
+            if (r2.ok || r2.status === 206) {
+              response = r2;
+              break;
+            }
+          } catch (_) {}
+          if (abortController.signal.aborted) break;
+        }
       }
 
       if (!response.ok && response.status !== 206) {
