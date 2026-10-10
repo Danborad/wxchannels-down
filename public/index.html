@@ -348,6 +348,29 @@
       font-variant-numeric: tabular-nums;
     }
 
+    .reparse-btn {
+      margin-left: auto;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      font-size: 11px;
+      font-weight: 500;
+      padding: 3px 8px;
+      border-radius: 7px;
+      cursor: pointer;
+      transition: all 0.15s var(--ease);
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    .reparse-btn:hover {
+      color: var(--text);
+      border-color: var(--border-hover);
+    }
+
     /* 动作按钮网格 */
     .controls-grid {
       display: grid;
@@ -630,6 +653,13 @@
             </div>
             <div id="postTime" class="creator-time">-</div>
           </div>
+          <button id="btnReparse" class="reparse-btn" title="重新解析（刷新文案/封面/更高画质）">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="23 4 23 10 17 10"></polyline>
+              <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+            </svg>
+            <span>重新解析</span>
+          </button>
         </div>
 
         <div id="postDesc" class="caption-scroll"></div>
@@ -717,6 +747,7 @@
   const btnDownloadPreviewText = document.getElementById("btnDownloadPreviewText");
   const btnCopyLink = document.getElementById("btnCopyLink");
   const btnCopyText = document.getElementById("btnCopyText");
+  const btnReparse = document.getElementById("btnReparse");
   const btnCover = document.getElementById("btnCover");
   const btnBgm = document.getElementById("btnBgm");
 
@@ -726,6 +757,7 @@
   const btnClearArchive = document.getElementById("btnClearArchive");
 
   let activeData = null;
+  let activeShareUrl = "";
   const ARCHIVE_KEY = "wxchannels_archive_v2";
 
   function toast(msg) {
@@ -772,6 +804,7 @@
     const match = raw.match(/https:\/\/weixin\.qq\.com\/sph\/[a-zA-Z0-9_-]+/);
     const targetUrl = match ? match[0] : raw;
 
+    activeShareUrl = targetUrl;
     hideNotice();
     btnParse.disabled = true;
     btnParse.textContent = "解析中";
@@ -889,6 +922,18 @@
     navigator.clipboard.writeText(activeData.feed.description).then(() => toast("文案已复制"));
   });
 
+  // 重新解析：用于刷新文案/封面，或重新拉取更高分辨率资源
+  btnReparse.addEventListener("click", () => {
+    const target = activeShareUrl || urlInput.value.trim();
+    if (!target) {
+      showNotice("暂无可重新解析的链接，请先粘贴分享链接");
+      return;
+    }
+    urlInput.value = target;
+    handleExtract();
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  });
+
   // ---------------- 本地档案 (LocalStorage) ----------------
   function readArchive() {
     try {
@@ -932,6 +977,7 @@
           <div class="archive-subtext">${item.author} · ${new Date(item.time).toLocaleDateString()}</div>
         </div>
         <div class="archive-actions">
+          <button class="archive-action-btn" onclick="reparseArchived(${idx})" title="重新解析">重解</button>
           ${item.videoUrl ? `<a class="archive-action-btn" href="/api/download?url=${encodeURIComponent(item.videoUrl)}&filename=${encodeURIComponent((item.title || 'video').slice(0, 20) + '.mp4')}" target="_blank">下载</a>` : ''}
           <button class="archive-action-btn" onclick="copyArchived(${idx})">复制</button>
           <button class="archive-action-btn" style="color:#ef4444" onclick="removeArchived(${idx})">×</button>
@@ -944,10 +990,24 @@
     const list = readArchive();
     if (list[idx]) {
       activeData = list[idx].payload;
+      activeShareUrl = list[idx].shareUrl || "";
       renderGallery(list[idx].payload);
       toast("已调取历史记录");
       window.scrollTo({ top: 0, behavior: "smooth" });
     }
+  };
+
+  // 历史记录重新解析（可刷新文案/封面、或重新选择分辨率）
+  window.reparseArchived = function(idx) {
+    const list = readArchive();
+    if (!list[idx] || !list[idx].shareUrl) {
+      toast("该记录缺少原始分享链接");
+      return;
+    }
+    urlInput.value = list[idx].shareUrl;
+    activeShareUrl = list[idx].shareUrl;
+    handleExtract();
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   window.copyArchived = function(idx) {
