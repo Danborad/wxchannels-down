@@ -568,9 +568,44 @@
       }
     }
 
+    /* 画质说明 footer */
+    .quality-note {
+      margin-top: 4px;
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 11px;
+    }
+
+    .quality-note summary {
+      cursor: pointer;
+      list-style: none;
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 8px;
+      transition: color 0.15s;
+      user-select: none;
+    }
+
+    .quality-note summary:hover {
+      color: var(--text-secondary);
+    }
+
+    .quality-note summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .quality-note p {
+      text-align: left;
+      line-height: 1.7;
+      margin-top: 8px;
+      padding: 10px 12px;
+      background: var(--pill-bg);
+      border-radius: 10px;
+      color: var(--text-secondary);
+    }
+
     /* Toast 通知 */
-    .toast-bubble {
-      position: fixed;
+    .toast-bubble {      position: fixed;
       bottom: 24px;
       left: 50%;
       transform: translateX(-50%) translateY(20px);
@@ -693,7 +728,7 @@
               <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
               <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
             </svg>
-            <span>复制原画直链</span>
+            <span>复制直链</span>
           </button>
           <button id="btnCopyText" class="cmd-btn">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -722,6 +757,18 @@
     </div>
     <div class="archive-stream" id="archiveStream"></div>
   </section>
+
+  <!-- 画质说明（低调、非侵入式） -->
+  <footer class="quality-note">
+    <details>
+      <summary>关于画质</summary>
+      <p>
+        本工具走微信官方 Web 预览链路，微信仅下发被签名锁定的中等码率规格（如 H.264 / H.265），
+        因此已自动为你选择<strong>可用的最高画质</strong>。若需微信桌面客户端专属的未压缩原始母带，
+        请使用桌面端嗅探工具（如 res-downloader / 桌面版视频号下载器）。
+      </p>
+    </details>
+  </footer>
 </main>
 
 <div id="toastBubble" class="toast-bubble"></div>
