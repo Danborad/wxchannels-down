@@ -853,47 +853,85 @@ async function getFeedInfoFromWechat(exportId, generalToken) {
   return result;
 }
 
-// 规范化提取原画无损直链（剔除 X-snsvideoflag 等降码率标记，还原母带视频）
+// 规范化提取原画无损母带直链
+// 核心机制：腾讯 CDN 依靠 basedata / X-snsvideoflag 锁定“压缩转码版”；
+// 只要仅保留 encfilekey + token（并剥离 basedata、X-snsvideoflag 等转码标记），
+// CDN 就会回源下发创作者上传的【未压缩原画母带】（体积可大数倍）。
+// 注意：必须使用原始字符串解析，避免 URLSearchParams 对 token 中特殊字符二次转义破坏签名。
 function buildCleanVideoUrl(rawUrl) {
   if (!rawUrl) return "";
-  try {
-    const u = new URL(rawUrl);
-    const encfilekey = u.searchParams.get("encfilekey");
-    const token = u.searchParams.get("token");
-    if (encfilekey && token) {
-      // 腾讯视频 CDN 核心机制：只要去掉所有附加参数，仅留 encfilekey 和 token，即为未压缩原画视频！
-      const clean = new URL(`${u.origin}${u.pathname}`);
-      clean.searchParams.set("encfilekey", encfilekey);
-      clean.searchParams.set("token", token);
-      return clean.toString();
+  const qIndex = rawUrl.indexOf("?");
+  if (qIndex < 0) return rawUrl;
+
+  const base = rawUrl.slice(0, qIndex);
+  const query = rawUrl.slice(qIndex + 1);
+  const keep = {};
+  for (const pair of query.split("&")) {
+    if (!pair) continue;
+    const eq = pair.indexOf("=");
+    const k = eq >= 0 ? pair.slice(0, eq) : pair;
+    const v = eq >= 0 ? pair.slice(eq + 1) : "";
+    if (k === "encfilekey" || k === "token" || k === "uzid") {
+      keep[k] = v;
     }
-    u.searchParams.delete("X-snsvideoflag");
-    u.searchParams.delete("x-snsvideoflag");
-    return u.toString();
-  } catch (_) {
-    return rawUrl.replace(/[?&]X-snsvideoflag=[^&]*/gi, "");
   }
+
+  if (keep.encfilekey && keep.token) {
+    const parts = [`encfilekey=${keep.encfilekey}`, `token=${keep.token}`];
+    if (keep.uzid) parts.push(`uzid=${keep.uzid}`);
+    return `${base}?${parts.join("&")}`;
+  }
+
+  // 兜底：仅剥离降码率相关标记
+  return rawUrl
+    .replace(/[?&]X-snsvideoflag=[^&]*/gi, "")
+    .replace(/[?&]basedata=[^&]*/gi, "")
+    .replace(/^&/, "?")
+    .replace(/\?&/, "?");
 }
 
-// 快速探测媒体文件大小 (MB)
-async function probeMediaSize(url) {
-  if (!url) return { sizeText: "", bytes: 0 };
+// 探测媒体可下载性与文件大小 (MB)，同时兼容不支持 HEAD 的 CDN
+async function probeMedia(url) {
+  if (!url) return { ok: false, sizeText: "", bytes: 0 };
   try {
-    const res = await fetch(url, {
+    let res = await fetch(url, {
       method: "HEAD",
-      signal: AbortSignal.timeout(2500),
-      headers: { "User-Agent": "Mozilla/5.0" },
+      signal: AbortSignal.timeout(3000),
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36",
+      },
     });
+    // 某些 CDN 拒绝 HEAD，改用 Range GET 探测
+    if (!res.ok) {
+      res = await fetch(url, {
+        method: "GET",
+        headers: {
+          "User-Agent":
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36",
+          Range: "bytes=0-0",
+        },
+        signal: AbortSignal.timeout(3000),
+      });
+    }
+    let bytes = 0;
     const cl = res.headers.get("content-length");
     if (cl) {
-      const bytes = parseInt(cl, 10);
-      if (bytes > 0) {
-        const mb = (bytes / (1024 * 1024)).toFixed(1);
-        return { sizeText: `${mb} MB`, bytes };
-      }
+      bytes = parseInt(cl, 10) || 0;
     }
+    // Range 响应会通过 Content-Range 给出完整大小：bytes 0-0/12345678
+    const cr = res.headers.get("content-range");
+    if (cr && cr.includes("/")) {
+      const total = parseInt(cr.split("/").pop(), 10);
+      if (total > 0) bytes = total;
+    }
+    try {
+      await res.body?.cancel();
+    } catch (_) {}
+    const sizeText = bytes > 0 ? `${(bytes / (1024 * 1024)).toFixed(1)} MB` : "";
+    return { ok: true, sizeText, bytes };
   } catch (_) {}
-  return { sizeText: "", bytes: 0 };
+  return { ok: false, sizeText: "", bytes: 0 };
 }
 
 // 统一视频解析（自动进行账号池多账号轮询与自动容灾切替）
@@ -943,13 +981,19 @@ async function parseChannelsVideo(shareUrl) {
         "";
 
       // 提取未压缩原画视频直链 (还原 1080P/超高码率母带)
-      const originVideoUrl = buildCleanVideoUrl(defaultVideoUrl);
+      let originVideoUrl = buildCleanVideoUrl(defaultVideoUrl);
 
-      // 并发探测原画与压缩版本的文件大小
+      // 并发探测原画与压缩版本的可下载性 + 文件大小
       const [originProbe, defaultProbe] = await Promise.all([
-        probeMediaSize(originVideoUrl),
-        probeMediaSize(defaultVideoUrl),
+        probeMedia(originVideoUrl),
+        probeMedia(defaultVideoUrl),
       ]);
+
+      // 若原画母带直链不可下载，则安全降级回默认可播放直链
+      if (!originProbe.ok && defaultProbe.ok) {
+        console.log(`[解析] 原画母带直链不可用，自动降级为默认直链`);
+        originVideoUrl = defaultVideoUrl;
+      }
 
       // 标记该账号调用成功
       accountManager.markSuccess(account.id);
@@ -968,7 +1012,7 @@ async function parseChannelsVideo(shareUrl) {
             videoUrl: originVideoUrl, // 默认主直链指向原画视频
             rawVideoUrl: originVideoUrl,
             previewVideoUrl: defaultVideoUrl, // 预览轻量播放流
-            originSizeText: originProbe.sizeText || "",
+            originSizeText: originProbe.ok ? originProbe.sizeText : "",
             previewSizeText: defaultProbe.sizeText || "",
             createTime: feedInfo.createtime ? Number(feedInfo.createtime) : null,
             stats: {
@@ -1105,22 +1149,39 @@ const server = http.createServer(async (req, res) => {
     const abortController = new AbortController();
     req.on("close", () => abortController.abort());
 
-    try {
-      const fetchHeaders = { "User-Agent": "Mozilla/5.0" };
-      if (req.headers["range"]) {
-        fetchHeaders["Range"] = req.headers["range"];
-      }
+    const mediaHeaders = {
+      "User-Agent":
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36",
+      "Accept": "*/*",
+    };
+    if (req.headers["range"]) mediaHeaders["Range"] = req.headers["range"];
 
-      const response = await fetch(targetUrl, {
+    try {
+      let response = await fetch(targetUrl, {
         method: req.method,
-        headers: fetchHeaders,
+        headers: mediaHeaders,
         signal: abortController.signal,
       });
 
+      // 若原链接失效，尝试自动降级：剔除所有降码率标记后重试
+      if (!response.ok && response.status !== 206 && !abortController.signal.aborted) {
+        try {
+          const altUrl = buildCleanVideoUrl(targetUrl.replace(/&X-snsvideoflag=[^&]*/gi, ""));
+          if (altUrl && altUrl !== targetUrl) {
+            response = await fetch(altUrl, {
+              method: req.method,
+              headers: mediaHeaders,
+              signal: abortController.signal,
+            });
+          }
+        } catch (_) {}
+      }
+
       if (!response.ok && response.status !== 206) {
         if (!res.headersSent) {
-          res.statusCode = response.status;
-          res.end("Failed to fetch remote media");
+          res.statusCode = response.status === 200 ? 502 : response.status;
+          res.setHeader("Content-Type", "text/plain; charset=utf-8");
+          res.end(`Failed to fetch remote media (upstream ${response.status})`);
         }
         return;
       }
