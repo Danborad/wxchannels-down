@@ -14,6 +14,14 @@ const PORT = process.env.PORT || 3888;
 const CHROME_PORT = process.env.CHROME_PORT ? Number(process.env.CHROME_PORT) : 9444;
 const CHROME_PROFILE_DIR = path.join(__dirname, ".chrome-profile");
 
+// 全局异常兜底保护，防止因客户端中断下载连接或网络抖动导致服务进程退出
+process.on("uncaughtException", (err) => {
+  console.error("[全局保护] 捕获未处理异常:", err?.message || err);
+});
+process.on("unhandledRejection", (reason) => {
+  console.error("[全局保护] 捕获未处理 Promise 拒绝:", reason?.message || reason);
+});
+
 // 提取视频号链接正则
 const SPH_URL_REGEX = /https:\/\/weixin\.qq\.com\/sph\/[a-zA-Z0-9_-]+/;
 
@@ -1083,8 +1091,8 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // 公开接口：代理流式下载
-  if (req.method === "GET" && pathname === "/api/download") {
+  // 公开接口：代理流式下载（支持 Range 断点续传与 IDM 多线程并发，客户端中断安全回收）
+  if ((req.method === "GET" || req.method === "HEAD") && pathname === "/api/download") {
     const targetUrl = parsedUrl.searchParams.get("url");
     const rawFilename = parsedUrl.searchParams.get("filename") || "video.mp4";
     const filename = encodeURIComponent(rawFilename);
@@ -1094,37 +1102,72 @@ const server = http.createServer(async (req, res) => {
       return res.end("Missing target url");
     }
 
+    const abortController = new AbortController();
+    req.on("close", () => abortController.abort());
+
     try {
-      const response = await fetch(targetUrl);
-      if (!response.ok) {
-        res.statusCode = response.status;
-        return res.end("Failed to fetch remote media");
+      const fetchHeaders = { "User-Agent": "Mozilla/5.0" };
+      if (req.headers["range"]) {
+        fetchHeaders["Range"] = req.headers["range"];
       }
 
-      res.statusCode = 200;
+      const response = await fetch(targetUrl, {
+        method: req.method,
+        headers: fetchHeaders,
+        signal: abortController.signal,
+      });
+
+      if (!response.ok && response.status !== 206) {
+        if (!res.headersSent) {
+          res.statusCode = response.status;
+          res.end("Failed to fetch remote media");
+        }
+        return;
+      }
+
+      res.statusCode = response.status;
       res.setHeader("Content-Type", response.headers.get("content-type") || "video/mp4");
+      res.setHeader("Accept-Ranges", "bytes");
       res.setHeader(
         "Content-Disposition",
         `attachment; filename="${filename}"; filename*=UTF-8''${filename}`
       );
 
       const contentLength = response.headers.get("content-length");
-      if (contentLength) {
-        res.setHeader("Content-Length", contentLength);
+      if (contentLength) res.setHeader("Content-Length", contentLength);
+
+      const contentRange = response.headers.get("content-range");
+      if (contentRange) res.setHeader("Content-Range", contentRange);
+
+      if (req.method === "HEAD" || !response.body) {
+        return res.end();
       }
 
       const reader = response.body.getReader();
-      const pump = async () => {
+      while (true) {
         const { done, value } = await reader.read();
-        if (done) return res.end();
-        res.write(Buffer.from(value));
-        return pump();
-      };
-      return pump();
+        if (done) break;
+        if (res.writableEnded || res.destroyed) {
+          await reader.cancel().catch(() => {});
+          break;
+        }
+        const canContinue = res.write(Buffer.from(value));
+        if (!canContinue) {
+          await new Promise((resolve) => res.once("drain", resolve));
+        }
+      }
+      if (!res.writableEnded) res.end();
     } catch (err) {
-      res.statusCode = 500;
-      return res.end("Download error: " + err.message);
+      if (err?.name !== "AbortError" && !res.headersSent && !res.writableEnded) {
+        res.statusCode = 500;
+        res.end("Download error: " + (err?.message || "unknown"));
+      } else if (!res.writableEnded) {
+        try {
+          res.end();
+        } catch (_) {}
+      }
     }
+    return;
   }
 
   // ---------------- 管理员接口 ----------------
@@ -1277,14 +1320,8 @@ const server = http.createServer(async (req, res) => {
       res.statusCode = imgRes.status;
       res.setHeader("Content-Type", imgRes.headers.get("content-type") || "image/jpeg");
       res.setHeader("Cache-Control", "no-cache");
-      const reader = imgRes.body.getReader();
-      const pump = async () => {
-        const { done, value } = await reader.read();
-        if (done) return res.end();
-        res.write(Buffer.from(value));
-        return pump();
-      };
-      return pump();
+      const buffer = Buffer.from(await imgRes.arrayBuffer());
+      return res.end(buffer);
     } catch (err) {
       res.statusCode = 500;
       return res.end("Fetch QR error: " + err.message);
