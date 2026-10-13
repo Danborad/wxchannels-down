@@ -6,26 +6,23 @@ PID_FILE="$SCRIPT_DIR/server.pid"
 
 echo "正在停止 wxchannels-down 服务..."
 
-# 1. 先删除 PID 文件，通知守护循环退出
+# 1. 优先停止 systemd 服务
+if command -v systemctl >/dev/null 2>&1 && [ -f /etc/systemd/system/wxchannels-down.service ]; then
+    systemctl stop wxchannels-down 2>/dev/null
+    echo "✅ systemd 服务已停止（如需彻底禁用开机自启：systemctl disable wxchannels-down）"
+fi
+
+# 2. 清理降级模式的守护循环
 if [ -f "$PID_FILE" ]; then
     WATCHDOG_PID=$(cat "$PID_FILE" 2>/dev/null)
     rm -f "$PID_FILE"
-    if [ -n "$WATCHDOG_PID" ]; then
-        kill "$WATCHDOG_PID" 2>/dev/null
-    fi
+    [ -n "$WATCHDOG_PID" ] && kill "$WATCHDOG_PID" 2>/dev/null
 fi
 
-# 2. 精确杀死本项目的 node 进程
-PIDS=$(pgrep -f "$SCRIPT_DIR/server.js")
-if [ -n "$PIDS" ]; then
-    kill $PIDS 2>/dev/null
-    sleep 0.5
-    kill -9 $PIDS 2>/dev/null
-    echo "✅ 服务进程已成功停止 ($PIDS)"
-else
-    echo "ℹ️ 未发现运行中的服务进程"
-fi
+# 3. 清理可能残留的本项目 node 进程
+PIDS=$(pgrep -f "wxchannels-down/server.js")
+[ -n "$PIDS" ] && kill $PIDS 2>/dev/null
 
-# 3. 清理可能残留的专属无头浏览器
+# 4. 清理专属无头浏览器
 pkill -TERM -f "\[r\]emote-debugging-port=9444" 2>/dev/null || true
 echo "✅ 停止完成"
