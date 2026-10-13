@@ -62,13 +62,13 @@
 本项目**零第三方 npm 依赖**（纯原生 Node.js 内置模块与 Fetch API），秒级启动。
 
 ```bash
-# 1. 确保安装了 Node.js (推荐 v18 或更高版本)
+# 1. 确保安装了 Node.js (推荐 v20 或更高版本，需支持 WebSocket)
 node -v
 
 # 2. 进入项目目录
 cd /vol1/1000/share1/AI/wxchannels-down
 
-# 3. 启动后台服务
+# 3. 启动服务（若已配置 systemd 则自动交给系统服务托管）
 bash start.sh
 
 # 查看实时运行日志
@@ -77,6 +77,16 @@ tail -f server.log
 # 停止服务
 bash stop.sh
 ```
+
+> 在 Linux 服务器 / NAS 上，`start.sh` 会**优先注册并启动 systemd 系统服务**（`wxchannels-down.service`），
+> 从而获得**开机自启 + 崩溃自动重启**，且不受终端会话关闭影响。
+> 直接使用 systemd 管理：
+> ```bash
+> systemctl status wxchannels-down     # 查看状态
+> systemctl restart wxchannels-down    # 重启
+> systemctl disable wxchannels-down    # 取消开机自启
+> journalctl -u wxchannels-down -f     # 实时日志
+> ```
 
 启动后，访问地址：
 - 本地访问：`http://localhost:3888`
