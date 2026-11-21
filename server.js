@@ -278,7 +278,13 @@ async function ensureChrome() {
     return true;
   }
 
-  const chromePaths = ["/usr/bin/google-chrome", "/usr/bin/chromium-browser", "/usr/bin/chromium", "google-chrome"];
+  const chromePaths = [
+    "C:/Program Files/Google/Chrome/Application/chrome.exe",
+    "C:/Program Files (x86)/Google/Chrome/Application/chrome.exe",
+    "C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe",
+    "C:/Program Files/Microsoft/Edge/Application/msedge.exe",
+    "/usr/bin/google-chrome", "/usr/bin/chromium-browser", "/usr/bin/chromium", "google-chrome",
+  ];
   let bin = null;
   for (const p of chromePaths) {
     if (fs.existsSync(p)) {
@@ -556,6 +562,31 @@ async function completeWechatLogin(jsCode, session) {
 
 // 启动扫码获取二维码
 async function getWechatLoginQrcode() {
+  // 【修复】每次扫码前彻底重置浏览器环境：关闭旧 Chrome + 删除持久化 profile。
+  // 否则上次扫码的元宝登录 cookie 会残留在 profile 中，导致新一次扫码时
+  // 元宝自动登录、还没扫就读到旧 cookie 直接判定"添加成功"（二维码一闪而过）。
+  cancelChromeShutdown();
+  try {
+    if (chromeProcess) {
+      chromeProcess.kill("SIGTERM");
+      chromeProcess = null;
+    }
+  } catch (_) {}
+  try {
+    execSync("pkill -TERM -f '[r]emote-debugging-port=" + CHROME_PORT + "'", { stdio: "ignore" });
+  } catch (_) {}
+  currentLoginSession = null;
+  currentVerify = null;
+  await new Promise((r) => setTimeout(r, 800));
+  try {
+    if (fs.existsSync(CHROME_PROFILE_DIR)) {
+      fs.rmSync(CHROME_PROFILE_DIR, { recursive: true, force: true });
+      console.log("[扫码登录] 已清空残留浏览器 profile，确保本次为全新未登录态");
+    }
+  } catch (e) {
+    console.log("[扫码登录] 清空 profile 异常:", e.message);
+  }
+
   const hasChrome = await ensureChrome();
   if (!hasChrome) {
     throw new Error("服务端未能成功拉起 Chrome 无头引擎");
@@ -664,7 +695,12 @@ async function checkWechatLoginStatus(uuid, nonce) {
     const auth = await getTabAuthInfo(currentLoginSession.wsUrl);
     const fullCookie = buildCookieFromAuth(auth);
 
-    if (fullCookie) {
+    // 【修复】扫码宽限期：二维码生成后 3 秒内不接受"已登录"判定。
+    // 真人不可能在 3 秒内完成扫码+手机确认，此期间读到的 cookie 一律是残留登录态，
+    // 忽略它、继续等待真实的微信扫码回调，避免"还没扫就添加成功"。
+    const SCAN_GRACE_MS = 3000;
+    const sessionAge = Date.now() - (currentLoginSession.createdAt || 0);
+    if (fullCookie && sessionAge >= SCAN_GRACE_MS) {
       accountManager.upsertAccount(fullCookie);
       scheduleChromeShutdown(8000);
       console.log(`[元宝登录] 🎉 成功捕获登录凭证！已写入账号池`);
