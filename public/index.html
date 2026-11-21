@@ -852,17 +852,20 @@
     noticeBox.textContent = "";
   }
 
-  // 剪贴板快速粘贴
+  // 剪贴板快速粘贴（HTTP 下 navigator.clipboard 不可用，引导手动粘贴）
   btnPaste.addEventListener("click", async () => {
-    try {
-      const text = await navigator.clipboard.readText();
-      if (text) {
-        urlInput.value = text;
-        toast("已粘贴内容");
-      }
-    } catch (_) {
-      urlInput.focus();
+    if (navigator.clipboard && window.isSecureContext) {
+      try {
+        const text = await navigator.clipboard.readText();
+        if (text) {
+          urlInput.value = text;
+          toast("已粘贴内容");
+          return;
+        }
+      } catch (_) {}
     }
+    urlInput.focus();
+    toast("请直接按 Ctrl+V 粘贴链接");
   });
 
   // 解析指令
@@ -988,14 +991,36 @@
     resultCard.style.display = "block";
   }
 
+  // 兼容非 HTTPS 环境（http://IP 访问时 navigator.clipboard 被浏览器禁用）
+  function copyTextSafe(text, okMsg) {
+    if (!text) return;
+    const fallback = () => {
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.setAttribute("readonly", "");
+      ta.style.position = "fixed";
+      ta.style.top = "-9999px";
+      document.body.appendChild(ta);
+      ta.select();
+      ta.setSelectionRange(0, ta.value.length);
+      let ok = false;
+      try { ok = document.execCommand("copy"); } catch (e) {}
+      document.body.removeChild(ta);
+      toast(ok ? okMsg : "复制失败，请手动选中文字复制");
+    };
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(text).then(() => toast(okMsg)).catch(fallback);
+    } else {
+      fallback();
+    }
+  }
+
   btnCopyLink.addEventListener("click", () => {
-    if (!activeData?.feed?.videoUrl) return;
-    navigator.clipboard.writeText(activeData.feed.videoUrl).then(() => toast("直链已复制"));
+    copyTextSafe(activeData?.feed?.videoUrl, "直链已复制");
   });
 
   btnCopyText.addEventListener("click", () => {
-    if (!activeData?.feed?.description) return;
-    navigator.clipboard.writeText(activeData.feed.description).then(() => toast("文案已复制"));
+    copyTextSafe(activeData?.feed?.description, "文案已复制");
   });
 
   // 重新解析：用于刷新文案/封面，或重新拉取更高分辨率资源
@@ -1089,7 +1114,7 @@
   window.copyArchived = function(idx) {
     const list = readArchive();
     if (list[idx] && list[idx].videoUrl) {
-      navigator.clipboard.writeText(list[idx].videoUrl).then(() => toast("直链已复制"));
+      copyTextSafe(list[idx].videoUrl, "直链已复制");
     }
   };
 

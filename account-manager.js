@@ -166,9 +166,32 @@ class AccountManager {
     return false;
   }
 
+  // 失败账号的冷却时间：失败后暂时移出轮换，到期自动回归（默认 10 分钟）
+  static get ERROR_COOLDOWN_MS() {
+    return 10 * 60 * 1000;
+  }
+
   // 获取所有候选账号用于轮询调度
   getCandidates() {
     if (this.data.accounts.length === 0) return [];
+
+    // 【优化】失败账号冷却到期后自动恢复为 active，避免偶发失败导致账号被永久雪藏。
+    // 这样多账号始终是"轮换着用"，而不是"某一个用废了才轮到下一个"。
+    const now = Date.now();
+    let recovered = false;
+    for (const a of this.data.accounts) {
+      if (a.status === "error") {
+        const failedAt = a.errorAt || a.lastUsedAt || 0;
+        if (now - failedAt >= AccountManager.ERROR_COOLDOWN_MS) {
+          a.status = "active";
+          a.errorMsg = "";
+          a.errorAt = null;
+          recovered = true;
+        }
+      }
+    }
+    if (recovered) this.save();
+
     // 优先活跃账号，如果全被标记为 error 也允许尝试以防偶发恢复
     const actives = this.data.accounts.filter((a) => a.status === "active");
     const list = actives.length > 0 ? actives : this.data.accounts;
@@ -194,6 +217,7 @@ class AccountManager {
       acc.lastUsedAt = Date.now();
       acc.status = "active";
       acc.errorMsg = "";
+      acc.errorAt = null;
       this.save();
     }
   }
@@ -206,6 +230,7 @@ class AccountManager {
       acc.lastUsedAt = Date.now();
       acc.status = "error";
       acc.errorMsg = errMsg || "调用失败";
+      acc.errorAt = Date.now(); // 冷却计时起点，到期后 getCandidates 自动恢复
       this.save();
     }
   }
